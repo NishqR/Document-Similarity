@@ -1,5 +1,8 @@
 from nltk.corpus import stopwords
 from nltk import download
+import gensim
+import warnings
+warnings.filterwarnings('ignore') 
 download('stopwords')  # Download stopwords list.
 
 from time import time
@@ -16,9 +19,6 @@ if not os.path.exists('wmd/GoogleNews-vectors-negative300.bin.gz'):
     raise ValueError("SKIP: You need to download the google news model")
     
 
-model = Word2Vec.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
-#model = Word2Vec('wmd/GoogleNews-vectors-negative300.bin.gz')
-print('Cell took %.2f seconds to run.' % (time() - start))
 
 sentence_obama = 'Obama speaks to the media in Illinois'
 sentence_president = 'The president greets the press in Chicago'
@@ -30,6 +30,9 @@ stop_words = stopwords.words('english')
 sentence_obama = [w for w in sentence_obama if w not in stop_words]
 sentence_president = [w for w in sentence_president if w not in stop_words]
 
+model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
+#model = Word2Vec('wmd/GoogleNews-vectors-negative300.bin.gz')
+print('Cell took %.2f seconds to run.' % (time() - start))
 
 distance = model.wmdistance(sentence_obama, sentence_president)
 print(distance)

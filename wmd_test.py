@@ -30,16 +30,6 @@ from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
 
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('punkt')
-nltk.download('omw-1.4')
-nltk.download('punkt')
-
-stop_words = stopwords.words('english')
-
-lemmatizer = WordNetLemmatizer()
-
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
@@ -76,6 +66,17 @@ def process_wmd_similarity(article_comp, article_against, temp_list, max_similar
 
 
 if __name__ == "__main__":
+
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+    nltk.download('punkt')
+    nltk.download('omw-1.4')
+    nltk.download('punkt')
+
+    stop_words = stopwords.words('english')
+
+    lemmatizer = WordNetLemmatizer()
+
 
     all_lines = []
     directory = 'factiva_articles/'
@@ -199,7 +200,7 @@ if __name__ == "__main__":
                 if first_word_similarity > 0.9:
                     
                     print(f"FIRST WORD MATCH FOUND: {title_first_word}, {word}, {first_word_similarity}")
-                    #print(title_first_word, word, first_word_similarity)
+                    print(title_first_word, word, first_word_similarity)
                     
                     if first_word_found_before == False:
                         start_index = article.index(word)
@@ -295,6 +296,7 @@ if __name__ == "__main__":
     plt.show()
 
 
+    print("Loading model")
     start = time()
     global model
     #model = 5
@@ -316,7 +318,7 @@ if __name__ == "__main__":
     count = manager.list()
     count.append(0)
     
-    procs = 2
+    procs = 4
     #procs = multiprocessing.cpu_count()
     jobs_list = []
 
