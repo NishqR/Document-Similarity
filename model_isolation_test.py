@@ -10,28 +10,28 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from difflib import SequenceMatcher
-from collections import defaultdict
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from statistics import mean
+#from difflib import SequenceMatcher
+#from collections import defaultdict
+#from sklearn.feature_extraction.text import TfidfVectorizer
+#from sklearn.metrics.pairwise import cosine_similarity
+#from statistics import mean
 
-import gensim
-from gensim.models.doc2vec import Doc2Vec
-from sentence_transformers import SentenceTransformer
+#import gensim
+#from gensim.models.doc2vec import Doc2Vec
+#from sentence_transformers import SentenceTransformer
 
-from tensorflow_estimator.python.estimator.canned.dnn import dnn_logit_fn_builder
-import tensorflow_hub as hub
-import tensorflow as tf
+#from tensorflow_estimator.python.estimator.canned.dnn import dnn_logit_fn_builder
+#import tensorflow_hub as hub
+#import tensorflow as tf
 
 import multiprocessing
 from multiprocessing import Pool, cpu_count
 
-import nltk
+#import nltk
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from nltk import sent_tokenize
+#from nltk.tokenize import word_tokenize
+#from nltk.stem import WordNetLemmatizer
+#from nltk import sent_tokenize
 
 import threading
 import random
@@ -41,7 +41,7 @@ stop_words = stopwords.words('english')
 print("---------------------------- LOADING MODEL---------------------------- ")
 start = time()
 global model
-model = 10000
+model = 10
 #model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
 print('Cell took %.2f seconds to run.' % (time() - start))
 
@@ -71,21 +71,34 @@ def process_model(dummy, x):
 def process_model(dummy, temp_list):
 
     out_list = []
+    print(f"Model = {model}")
     for i in range(model):
         temp_list.append(random.random())
 
+    print(len(temp_list))
 
 def create_threads(cpus, temp_matrix):
 
     x = 5
-    num_threads = 32
+    num_threads = 1
     threads_list = []
 
-    manager = multiprocessing.Manager()
-    temp_list = mananger.list()
+    list_manager = multiprocessing.Manager()
+    temp_list = list_manager.list()
 
+    # CREATE A NEW TEMP LIST FOR EVERY THREAD 
+
+    
+    '''
+    thread = threading.Thread(target = process_model, 
+                                        args = (num_threads, temp_list))
+
+    thread.start()
+    thread.join()
+
+    '''
     #print(f"Thread count = {num_threads}")
-    for r in range(1000):
+    for r in range(1):
         #print(f"Jobs list = {jobs_list}")
 
         if len(threads_list) == num_threads:
@@ -101,6 +114,7 @@ def create_threads(cpus, temp_matrix):
             for thread in threads_list:
                 #print(f"Double checking threads")
                 thread.join()
+                temp_matrix.append(temp_list)
             
             threads_list = []
             
@@ -112,13 +126,13 @@ def create_threads(cpus, temp_matrix):
             thread = threading.Thread(target = process_model, 
                                         args = (num_threads, temp_list))
             threads_list.append(thread)
-
+    
 if __name__ == "__main__":
     
-    cpus = 5
+    cpus = 3
 
-    manager = multiprocessing.Manager()
-    temp_matrix = mananger.list()
+    matrix_manager = multiprocessing.Manager()
+    temp_matrix = matrix_manager.list()
 
     #procs = multiprocessing.cpu_count()
     
@@ -144,6 +158,8 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
+    #print(len(temp_matrix))
+    #print(temp_matrix[0])
 
 # Check which process was started - and if all 3 are running, 
 # how to avoid cannot start a process twice - test with dummy function
