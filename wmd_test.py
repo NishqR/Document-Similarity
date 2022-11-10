@@ -1,6 +1,7 @@
 import os
 import string
 from time import time
+import random
 
 import pandas as pd
 import numpy as np
@@ -22,6 +23,7 @@ import tensorflow as tf
 
 import multiprocessing
 from multiprocessing import Pool, cpu_count
+import threading
 
 import nltk
 from nltk.corpus import stopwords
@@ -29,6 +31,12 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
+print("---------------------------- LOADING MODEL---------------------------- ")
+start = time()
+global model
+#model = 10000
+model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
+print('Cell took %.2f seconds to run.' % (time() - start))
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -36,7 +44,7 @@ def similar(a, b):
 def preprocess(sentence):
     return [w for w in sentence.lower().split() if w not in stop_words]
 
-def process_wmd_similarity(article_comp, article_against, temp_list, max_similarity, min_similarity, count, model):
+def process_wmd_similarity(article_comp, article_against, temp_list, max_similarity, min_similarity, count):
     start = time()
     #base_document = preprocess(base_document)
     #documents = preprocess(documents[0])

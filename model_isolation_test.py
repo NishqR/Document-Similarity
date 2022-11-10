@@ -37,11 +37,11 @@ import threading
 import random
 
 stop_words = stopwords.words('english')
-    
+
 print("---------------------------- LOADING MODEL---------------------------- ")
 start = time()
 global model
-#model = 1000000
+#model = 10000
 model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
 print('Cell took %.2f seconds to run.' % (time() - start))
 
@@ -81,13 +81,13 @@ def create_threads():
     num_threads = 32
     threads_list = []
 
-    print(f"Thread count = {num_threads}")
+    #print(f"Thread count = {num_threads}")
     for r in range(1000):
         #print(f"Jobs list = {jobs_list}")
 
         if len(threads_list) == num_threads:
 
-            print(f"Threads list full")
+            #print(f"Threads list full")
 
             # Start the processes       
             for thread in threads_list:
@@ -111,9 +111,9 @@ def create_threads():
             threads_list.append(thread)
 
 if __name__ == "__main__":
-        
     
-    cpus = 3
+    cpus = 5
+    
     
     #procs = multiprocessing.cpu_count()
     
@@ -130,15 +130,14 @@ if __name__ == "__main__":
 
     
     print(f"Processes list = {processes_list}")
+    
     for process in processes_list:
+        print(f"Starting process")
+        process.start()
 
-        for process in processes_list:
-            print(f"Starting process")
-            process.start()
-
-        for process in processes_list:
-            print(f"Double checking process")
-            process.join()
+    for process in processes_list:
+        print(f"Double checking process")
+        process.join()
 
 
 # Check which process was started - and if all 3 are running, 
