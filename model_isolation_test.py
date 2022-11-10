@@ -41,8 +41,8 @@ stop_words = stopwords.words('english')
 print("---------------------------- LOADING MODEL---------------------------- ")
 start = time()
 global model
-#model = 10000
-model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
+model = 10000
+#model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
 print('Cell took %.2f seconds to run.' % (time() - start))
 
 
@@ -51,7 +51,7 @@ def preprocess(sentence):
     sentence = sentence.lower().split()
     return [w for w in sentence.lower().split() if w not in stop_words]
 
-
+'''
 def process_model(dummy, x):
     sentence_obama = 'Obama speaks to the media in Illinois'
     sentence_president = 'The president greets the press in Chicago'
@@ -68,18 +68,21 @@ def process_model(dummy, x):
 
 '''
 
-def process_model(dummy, x):
+def process_model(dummy, temp_list):
 
     out_list = []
     for i in range(model):
-        out_list.append(random.random())
-'''
+        temp_list.append(random.random())
 
-def create_threads():
+
+def create_threads(cpus, temp_matrix):
 
     x = 5
     num_threads = 32
     threads_list = []
+
+    manager = multiprocessing.Manager()
+    temp_list = mananger.list()
 
     #print(f"Thread count = {num_threads}")
     for r in range(1000):
@@ -107,14 +110,16 @@ def create_threads():
             #                                 args = (procs,model))
 
             thread = threading.Thread(target = process_model, 
-                                        args = (num_threads, x))
+                                        args = (num_threads, temp_list))
             threads_list.append(thread)
 
 if __name__ == "__main__":
     
     cpus = 5
-    
-    
+
+    manager = multiprocessing.Manager()
+    temp_matrix = mananger.list()
+
     #procs = multiprocessing.cpu_count()
     
     print(f"Processor count = {cpus}")
@@ -125,7 +130,7 @@ if __name__ == "__main__":
     for i in range(cpus):
         # for each CPU load the model (which it does automatically) and create threads
         # it wont go back to main so put the thread creation in a function
-        process = multiprocessing.Process(target = create_threads)
+        process = multiprocessing.Process(target = create_threads, args=(cpus, temp_matrix))
         processes_list.append(process)
 
     

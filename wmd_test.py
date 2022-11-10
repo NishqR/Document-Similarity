@@ -69,7 +69,7 @@ def process_wmd_similarity(article_comp, article_against, temp_scores_list):
 def create_threads(articles_batch, all_articles, temp_scores_list):
 
     
-    num_threads = 30
+    num_threads = 36
     threads_list = []
 
     for article_other in all_articles:
@@ -345,8 +345,13 @@ if __name__ == "__main__":
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
     
+    num_threads = len(articles_df) / num_cpus
+    print(f"Thread count = {num_threads}")
+
     processes_list = []
     print(f"Processes list = {processes_list}")
+
+    
     
     for index, row in articles_df.iterrows():
 
@@ -363,19 +368,19 @@ if __name__ == "__main__":
             print(f"Jobs list = {processes_list}")
             article_against = preprocess(article_other)
                     
-            if len(processes_list) == procs:
+            if len(processes_list) == num_cpus:
 
                 print(f"Jobs list full")
 
                 # Start the processes       
-                for j in processes_list:
+                for process in processes_list:
                     print(f"Starting jobs")
-                    j.start()
+                    process.start()
 
                 # Ensure all of the processes have finished
-                for j in processes_list:
+                for process in processes_list:
                     print(f"Double checking jobs")
-                    j.join()
+                    process.join()
                 
                 processes_list = []
                 
