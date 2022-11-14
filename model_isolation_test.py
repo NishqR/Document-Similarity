@@ -1,6 +1,7 @@
 import os
 import string
-from time import time
+import time
+#from time import time
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -39,11 +40,11 @@ import random
 stop_words = stopwords.words('english')
 
 print("---------------------------- LOADING MODEL---------------------------- ")
-start = time()
+start = time.time()
 global model
 model = 10
 #model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
-print('Cell took %.2f seconds to run.' % (time() - start))
+print('Cell took %.2f seconds to run.' % (time.time() - start))
 
 
 def preprocess(sentence):
@@ -73,13 +74,15 @@ def process_model(dummy, temp_list):
     out_list = []
     print(f"Model = {model}")
     for i in range(model):
-        temp_list.append(random.random())
+        rando_number = random.random()
+        #print(rando_number)
+        temp_list.append(rando_number)
 
     print(len(temp_list))
 
 def create_threads(cpus, temp_matrix):
 
-    x = 5
+    
     num_threads = 1
     threads_list = []
 
@@ -98,7 +101,13 @@ def create_threads(cpus, temp_matrix):
 
     '''
     #print(f"Thread count = {num_threads}")
-    for r in range(1):
+    #temp_matrix.append(5)
+
+    #for article in list_of_articles:
+
+        # create threads 
+
+    for r in range(num_threads + 1):
         #print(f"Jobs list = {jobs_list}")
 
         if len(threads_list) == num_threads:
@@ -114,7 +123,7 @@ def create_threads(cpus, temp_matrix):
             for thread in threads_list:
                 #print(f"Double checking threads")
                 thread.join()
-                temp_matrix.append(temp_list)
+                temp_matrix.append(list(temp_list))
             
             threads_list = []
             
@@ -129,7 +138,7 @@ def create_threads(cpus, temp_matrix):
     
 if __name__ == "__main__":
     
-    cpus = 3
+    cpus = 5
 
     matrix_manager = multiprocessing.Manager()
     temp_matrix = matrix_manager.list()
@@ -158,8 +167,19 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
-    #print(len(temp_matrix))
-    #print(temp_matrix[0])
+    print(len(temp_matrix))
+    print(temp_matrix)
+
+    for i in range(len(temp_matrix)):
+
+        print(len(temp_matrix[i]))
+    
+    #time.sleep(10)
+
+    #ne_list = list(temp_matrix)
+    #print(ne_list)
+
+    #print(type(temp_matrix[0]))
 
 # Check which process was started - and if all 3 are running, 
 # how to avoid cannot start a process twice - test with dummy function
