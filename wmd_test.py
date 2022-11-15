@@ -40,8 +40,8 @@ stop_words = stopwords.words('english')
 print("---------------------------- LOADING MODEL---------------------------- ")
 start = time()
 global model
-model = 10000
-#model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
+#model = 10000
+model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
 print('Cell took %.2f seconds to run.' % (time() - start))
 
 def similar(a, b):
@@ -55,9 +55,9 @@ def process_wmd_similarity(article_comp, article_against):
     #base_document = preprocess(base_document)
     #documents = preprocess(documents[0])
     
-    #distance = model.wmdistance(article_comp, article_against)
-    distance = model
-    print(f"Distance = {distance}")
+    distance = model.wmdistance(article_comp, article_against)
+    #distance = model
+    #print(f"Distance = {distance}")
     print('Cell took %.2f seconds to run.' % (time() - start))
     
     try: 
@@ -68,9 +68,10 @@ def process_wmd_similarity(article_comp, article_against):
 
     return score
 
-def process_model(articles_batch, all_articles, temp_list):
+def process_model(articles_batch, all_articles, temp_matrix):
     for article_comp in articles_batch:
 
+        temp_list = []
         article_comp = preprocess(article_comp)
 
         for article_against in all_articles:
@@ -80,6 +81,10 @@ def process_model(articles_batch, all_articles, temp_list):
             score = process_wmd_similarity(article_comp, article_against)
 
             temp_list.append(score)
+
+        temp_matrix.append(list(temp_list))
+        temp_list = []
+
 
 
 
@@ -131,14 +136,14 @@ def create_threads(articles_batch, all_articles, temp_matrix):
             for thread in threads_list:
                 #print(f"Double checking threads")
                 thread.join()
-                temp_matrix.append(list(temp_list))
+                #temp_matrix.append(list(temp_list))
 
             threads_list = []
 
 
         else:
             thread = threading.Thread(target = process_model, 
-                                        args = (articles_batch, all_articles, temp_list))
+                                        args = (articles_batch, all_articles, temp_matrix))
             threads_list.append(thread)
 
 if __name__ == "__main__":
@@ -369,7 +374,7 @@ if __name__ == "__main__":
         plt.set_cmap('autumn')
 
         plt.matshow(matrix, fignum=1)
-
+        plt.savefig('base_matrix.png')
         #plt.show()
 
     
@@ -379,16 +384,16 @@ if __name__ == "__main__":
     temp_matrix = matrix_manager.list()
 
 
-    manager = multiprocessing.Manager()
-    max_similarity = manager.list()
-    max_similarity.append(0)
-    min_similarity = manager.list()
-    min_similarity.append(0)
+    #manager = multiprocessing.Manager()
+    #max_similarity = manager.list()
+    #max_similarity.append(0)
+    #min_similarity = manager.list()
+    #min_similarity.append(0)
     
-    count = manager.list()
-    count.append(0)
+    #count = manager.list()
+    #count.append(0)
     
-    num_cpus = 4
+    num_cpus = 2
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
     
@@ -419,7 +424,8 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
-    print(len(temp_matrix))
+    print(temp_matrix)
+    print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
     #print(temp_matrix)
 
 
@@ -464,7 +470,19 @@ if __name__ == "__main__":
 
         temp_matrix.append(temp_scores_list)
     '''
-    print("Max similarity: " +str(max_similarity[0]))
+    #print("Max similarity: " +str(max_similarity[0]))
+
+    max_similarity = 0
+    min_similarity = 10000
+
+    for list_ in temp_matrix:
+        for val_ in list_:
+
+            if val_ > max_similarity:
+                max_similarity = val_
+
+            if val_ < min_similarity:
+                min_similarity = val_
 
     wmd_matrix = []
 
@@ -474,7 +492,7 @@ if __name__ == "__main__":
 
         for similarity_value in temp_scores_list:
 
-            normalized_similarity = similarity_value / max_similarity[0]
+            normalized_similarity = similarity_value / max_similarity
             normalized_list.append(normalized_similarity)
 
         wmd_matrix.append(normalized_list)
@@ -483,5 +501,20 @@ if __name__ == "__main__":
     plt.set_cmap('autumn')
 
     plt.matshow(wmd_matrix, fignum=1)
+    plt.savefig('wmd.png')
 
-    plt.show()
+    wmd_diff_matrix = []
+    for i in range(len(matrix)):
+        
+        temp_list = []
+        for j in range(len(matrix[i])):
+            temp_list.append(matrix[i][j] - wmd_matrix[i][j])
+        
+        wmd_diff_matrix.append(temp_list)
+        
+    plt.figure(figsize = (10,10))
+    plt.set_cmap('autumn')
+
+    plt.matshow(wmd_diff_matrix, fignum=1)
+
+    plt.savefig('wmd_diff.png')
