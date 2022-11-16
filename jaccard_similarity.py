@@ -35,13 +35,88 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('punkt')
+nltk.download('omw-1.4')
+nltk.download('punkt')
+
 stop_words = stopwords.words('english')
+
+lemmatizer = WordNetLemmatizer()
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
-def preprocess(sentence):
-    return [w for w in sentence.lower().split() if w not in stop_words]
+def preprocess(text):
+    # Steps:
+    # 1. lowercase
+    # 2. Lammetize. (It does not stem. Try to preserve structure not to overwrap with potential acronym).
+    # 3. Remove stop words.
+    # 4. Remove punctuations.
+    # 5. Remove character with the length size of 1.
+
+    lowered = str.lower(text)
+
+    stop_words = set(stopwords.words('english'))
+    word_tokens = word_tokenize(lowered)
+
+    words = []
+    for w in word_tokens:
+        if w not in stop_words:
+            if w not in string.punctuation:
+                if len(w) > 1:
+                    lemmatized = lemmatizer.lemmatize(w)
+                    words.append(lemmatized)
+
+    return words
+
+def calculate_jaccard(word_tokens1, word_tokens2):
+    # Combine both tokens to find union.
+    both_tokens = word_tokens1 + word_tokens2
+    union = set(both_tokens)
+
+    # Calculate intersection.
+    intersection = set()
+    for w in word_tokens1:
+        if w in word_tokens2:
+            intersection.add(w)
+
+    jaccard_score = len(intersection)/len(union)
+    return jaccard_score
+
+def process_jaccard_similarity(base_document, documents):
+    start = time()
+    # Tokenize the base document we are comparing against.
+    base_tokens = preprocess(base_document)
+    documents = [documents]
+
+    # Tokenize each document
+    all_tokens = []
+    for i, document in enumerate(documents):
+        tokens = preprocess(document)
+        all_tokens.append(tokens)
+
+        #print("making word tokens at index:", i)
+
+    all_scores = []
+    for tokens in all_tokens:
+        score = calculate_jaccard(base_tokens, tokens)
+
+        all_scores.append(score)
+
+    highest_score = 0
+    highest_score_index = 0
+    for i, score in enumerate(all_scores):
+        if highest_score < score:
+            highest_score = score
+            highest_score_index = i
+
+    if highest_score > 0.95:
+        highest_score = 0
+
+    print('Cell took %.2f seconds to run.' % (time() - start))
+    return highest_score
 
 def process_wmd_similarity(article_comp, article_against):
     start = time()
@@ -65,13 +140,13 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
     for article_comp in articles_batch:
 
         temp_list = []
-        article_comp = preprocess(article_comp)
+        #article_comp = preprocess(article_comp)
 
         for article_against in all_articles:
 
-            article_against = preprocess(article_against)
+            #article_against = preprocess(article_against)
 
-            score = process_wmd_similarity(article_comp, article_against)
+            score = process_jaccard_similarity(article_comp, article_against)
             count[0] += 1
             print(f"Count - {count[0]}/16129")
             temp_list.append(score)
@@ -80,14 +155,8 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
         temp_list = []
 
 
-def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
-    print("---------------------------- LOADING MODEL---------------------------- ")
-    start = time()
-    global model
-    #model = 10000
-    model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
-    print('Cell took %.2f seconds to run.' % (time() - start))
+def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
     num_threads = 1
     threads_list = []
@@ -120,17 +189,8 @@ def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
 if __name__ == "__main__":
 
-    main_start = time() 
     if True:
-
-        nltk.download('stopwords')
-        nltk.download('wordnet')
-        nltk.download('punkt')
-        nltk.download('omw-1.4')
-        nltk.download('punkt')
-
-        lemmatizer = WordNetLemmatizer()
-
+        
         all_lines = []
         directory = 'factiva_articles/'
         for file in os.listdir(directory):
@@ -140,6 +200,7 @@ if __name__ == "__main__":
             
             all_lines.extend(lines)
             
+
         # Extracting individual articles from the entire corpus
         total_article_count = 0
         articles_used = 0
@@ -349,8 +410,8 @@ if __name__ == "__main__":
 
     
     articles = list(articles_df['text'])
-    
-    num_cpus = 4
+
+    num_cpus = 5
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
     
@@ -396,10 +457,10 @@ if __name__ == "__main__":
         for temp_list in matrices_dict[cpu_num]:
             temp_matrix.append(temp_list)
 
-
     print(temp_matrix)
     print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
     #print(temp_matrix)
+
 
     max_similarity = 0
     min_similarity = 10000
@@ -413,6 +474,8 @@ if __name__ == "__main__":
             if val_ < min_similarity:
                 min_similarity = val_
 
+    wmd_matrix = temp_matrix
+    
     wmd_matrix = []
 
     for temp_scores_list in temp_matrix:
@@ -425,12 +488,13 @@ if __name__ == "__main__":
             normalized_list.append(normalized_similarity)
 
         wmd_matrix.append(normalized_list)
+    
 
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
     plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('wmd.png')
+    plt.savefig('jaccard.png')
 
     wmd_diff_matrix = []
     for i in range(len(matrix)):
@@ -446,6 +510,4 @@ if __name__ == "__main__":
 
     plt.matshow(wmd_diff_matrix, fignum=1)
 
-    plt.savefig('wmd_diff.png')
-
-    print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
+    plt.savefig('jaccard_diff.png')
