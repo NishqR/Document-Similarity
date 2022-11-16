@@ -36,6 +36,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
 stop_words = stopwords.words('english')
+lemmatizer = WordNetLemmatizer()
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -43,23 +44,25 @@ def similar(a, b):
 def preprocess(sentence):
     return [w for w in sentence.lower().split() if w not in stop_words]
 
-def process_wmd_similarity(article_comp, article_against):
-    start = time()
-    #base_document = preprocess(base_document)
-    #documents = preprocess(documents[0])
-    
-    distance = model.wmdistance(article_comp, article_against)
-    #distance = model
-    #print(f"Distance = {distance}")
-    print('Cell took %.2f seconds to run.' % (time() - start))
-    
-    try: 
-        score = 1 / distance
-    except:
-        score = 0
+# TF-IDF SIMILARITY
+def process_tfidf_similarity(base_document, documents):
+    vectorizer = TfidfVectorizer()
+    documents = [documents]
 
+    # To make uniformed vectors, both documents need to be combined first.
+    documents.insert(0, base_document)
+    embeddings = vectorizer.fit_transform(documents)
 
-    return score
+    cosine_similarities = cosine_similarity(embeddings[0:1], embeddings[1:]).flatten()
+
+    highest_score = 0
+    highest_score_index = 0
+    for i, score in enumerate(cosine_similarities):
+        if highest_score < score:
+            highest_score = score
+            highest_score_index = i
+
+    return highest_score
 
 def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
     for article_comp in articles_batch:
@@ -71,7 +74,7 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
             article_against = preprocess(article_against)
 
-            score = process_wmd_similarity(article_comp, article_against)
+            score = process_tfidf_similarity(article_comp, article_against)
             count[0] += 1
             print(f"Count - {count[0]}/16129")
             temp_list.append(score)
@@ -82,13 +85,7 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
 def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
-    print("---------------------------- LOADING MODEL---------------------------- ")
-    start = time()
-    global model
-    #model = 10000
-    model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
-    print('MODEL LOADED in %.2f seconds' % (time() - start))
-
+    
     num_threads = 1
     threads_list = []
 
@@ -129,8 +126,6 @@ if __name__ == "__main__":
         nltk.download('omw-1.4')
         nltk.download('punkt')
 
-        lemmatizer = WordNetLemmatizer()
-
         all_lines = []
         directory = 'factiva_articles/'
         for file in os.listdir(directory):
@@ -152,7 +147,6 @@ if __name__ == "__main__":
 
         # Temporary list that stores each article as separate lines in order to determine the article's line count
         temp_lines = []
-
 
         for line in all_lines:
             
@@ -347,7 +341,6 @@ if __name__ == "__main__":
         plt.savefig('base_matrix.png')
         #plt.show()
 
-    
     articles = list(articles_df['text'])
     
     num_cpus = 5
@@ -413,7 +406,7 @@ if __name__ == "__main__":
             if val_ < min_similarity:
                 min_similarity = val_
 
-    wmd_matrix = []
+    tf_idf_matrix = []
 
     for temp_scores_list in temp_matrix:
 
@@ -424,28 +417,28 @@ if __name__ == "__main__":
             normalized_similarity = similarity_value / max_similarity
             normalized_list.append(normalized_similarity)
 
-        wmd_matrix.append(normalized_list)
+        tf_idf_matrix.append(normalized_list)
 
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('wmd.png')
+    plt.matshow(tf_idf_matrix, fignum=1)
+    plt.savefig('tf_idf.png')
 
-    wmd_diff_matrix = []
+    tf_idf_diff_matrix = []
     for i in range(len(matrix)):
         
         temp_list = []
         for j in range(len(matrix[i])):
-            temp_list.append(matrix[i][j] - wmd_matrix[i][j])
+            temp_list.append(matrix[i][j] - tf_idf_matrix[i][j])
         
-        wmd_diff_matrix.append(temp_list)
+        tf_idf_diff_matrix.append(temp_list)
         
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(wmd_diff_matrix, fignum=1)
+    plt.matshow(tf_idf_diff_matrix, fignum=1)
 
-    plt.savefig('wmd_diff.png')
+    plt.savefig('tf_idf_diff.png')
 
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
