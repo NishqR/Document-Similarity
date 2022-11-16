@@ -307,7 +307,7 @@ if __name__ == "__main__":
     plt.set_cmap('autumn')
 
     plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('jaccard.png')
+    plt.savefig('results/jaccard.png')
 
     wmd_diff_matrix = []
     for i in range(len(matrix)):
@@ -323,4 +323,4 @@ if __name__ == "__main__":
 
     plt.matshow(wmd_diff_matrix, fignum=1)
 
-    plt.savefig('jaccard_diff.png')
+    plt.savefig('results/jaccard_diff.png')

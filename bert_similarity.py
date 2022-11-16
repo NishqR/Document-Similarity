@@ -36,7 +36,6 @@ from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
 stop_words = stopwords.words('english')
-lemmatizer = WordNetLemmatizer()
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -44,40 +43,31 @@ def similar(a, b):
 def preprocess(sentence):
     return [w for w in sentence.lower().split() if w not in stop_words]
 
-# TF-IDF SIMILARITY
-def process_tfidf_similarity(base_document, documents):
-    vectorizer = TfidfVectorizer()
-    documents = [documents]
+def process_bert_similarity(base_embeddings, documents):
+    start = time()
 
-    # To make uniformed vectors, both documents need to be combined first.
-    documents.insert(0, base_document)
-    embeddings = vectorizer.fit_transform(documents)
-
-    cosine_similarities = cosine_similarity(embeddings[0:1], embeddings[1:]).flatten()
+    scores = cosine_similarity([base_embeddings], [documents]).flatten()
 
     highest_score = 0
     highest_score_index = 0
-    for i, score in enumerate(cosine_similarities):
+    for i, score in enumerate(scores):
         if highest_score < score:
             highest_score = score
             highest_score_index = i
-
     if highest_score > 0.95:
         highest_score = 0
 
+    print('Cell took %.2f seconds to run.' % (time() - start))
     return highest_score
 
 def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
     for article_comp in articles_batch:
 
         temp_list = []
-        #article_comp = preprocess(article_comp)
-
+        
         for article_against in all_articles:
 
-            #article_against = preprocess(article_against)
-
-            score = process_tfidf_similarity(article_comp, article_against)
+            score = process_bert_similarity(article_comp, article_against)
             count[0] += 1
             print(f"Count - {count[0]}/16129")
             temp_list.append(score)
@@ -88,7 +78,6 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
 def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
-    
     num_threads = 1
     threads_list = []
 
@@ -121,16 +110,40 @@ def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 if __name__ == "__main__":
 
     main_start = time() 
+    
+    print("---------------------------- LOADING MODEL---------------------------- ")
+    start = time()
+    global model
+    # This will download and load the pretrained model offered by UKPLab.
+    model = SentenceTransformer('bert-base-nli-mean-tokens')
+    print('MODEL LOADED in %.2f seconds' % (time() - start))
+
     nltk.download('stopwords')
     nltk.download('wordnet')
     nltk.download('punkt')
     nltk.download('omw-1.4')
     nltk.download('punkt')
 
+    lemmatizer = WordNetLemmatizer()
+
     articles_df = pd.read_csv("all_articles.csv")
 
-    articles = list(articles_df['text'])
+    #articles = list(articles_df['text'])
+    articles = []
+
+    embeddings_start = time()
+    for index, row in articles_df.iterrows():
+        print(f"Doing embeddings for article {index}")
+        start = time()
+        sentences = sent_tokenize(row['text'])
+        base_embeddings_sentences = model.encode(sentences)
+        base_embeddings = np.mean(np.array(base_embeddings_sentences), axis=0)
+        articles.append(base_embeddings)
+        print('Cell took %.2f seconds to run.' % (time() - start))
     
+
+    print('All emeddings completed in %.2f seconds' % (time() - embeddings_start))
+
     num_cpus = 5
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
@@ -172,6 +185,7 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
+
     matrix = []
     for index, row in articles_df.iterrows():
         
@@ -196,14 +210,14 @@ if __name__ == "__main__":
         
         matrix.append(temp_scores_list)
         
+
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
     plt.matshow(matrix, fignum=1)
     plt.savefig('base_matrix.png')
     #plt.show()
-
-
+    
     temp_matrix = []
     for cpu_num in range(num_cpus):
         for temp_list in matrices_dict[cpu_num]:
@@ -226,7 +240,7 @@ if __name__ == "__main__":
             if val_ < min_similarity:
                 min_similarity = val_
 
-    tf_idf_matrix = []
+    wmd_matrix = []
 
     for temp_scores_list in temp_matrix:
 
@@ -237,28 +251,28 @@ if __name__ == "__main__":
             normalized_similarity = similarity_value / max_similarity
             normalized_list.append(normalized_similarity)
 
-        tf_idf_matrix.append(normalized_list)
+        wmd_matrix.append(normalized_list)
 
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(tf_idf_matrix, fignum=1)
-    plt.savefig('results/tf_idf.png')
+    plt.matshow(wmd_matrix, fignum=1)
+    plt.savefig('results/bert.png')
 
-    tf_idf_diff_matrix = []
+    wmd_diff_matrix = []
     for i in range(len(matrix)):
         
         temp_list = []
         for j in range(len(matrix[i])):
-            temp_list.append(matrix[i][j] - tf_idf_matrix[i][j])
+            temp_list.append(matrix[i][j] - wmd_matrix[i][j])
         
-        tf_idf_diff_matrix.append(temp_list)
+        wmd_diff_matrix.append(temp_list)
         
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(tf_idf_diff_matrix, fignum=1)
+    plt.matshow(wmd_diff_matrix, fignum=1)
 
-    plt.savefig('results/tf_idf_diff.png')
+    plt.savefig('results/bert_diff.png')
 
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))

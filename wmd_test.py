@@ -247,7 +247,7 @@ if __name__ == "__main__":
     plt.set_cmap('autumn')
 
     plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('wmd.png')
+    plt.savefig('results/wmd.png')
 
     wmd_diff_matrix = []
     for i in range(len(matrix)):
@@ -263,6 +263,6 @@ if __name__ == "__main__":
 
     plt.matshow(wmd_diff_matrix, fignum=1)
 
-    plt.savefig('wmd_diff.png')
+    plt.savefig('results/wmd_diff.png')
 
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
