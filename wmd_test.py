@@ -37,7 +37,6 @@ from nltk import sent_tokenize
 
 stop_words = stopwords.words('english')
 
-
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
@@ -62,7 +61,7 @@ def process_wmd_similarity(article_comp, article_against):
 
     return score
 
-def process_model(articles_batch, all_articles, temp_matrix, count):
+def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
     for article_comp in articles_batch:
 
         temp_list = []
@@ -77,14 +76,11 @@ def process_model(articles_batch, all_articles, temp_matrix, count):
             print(f"Count - {count[0]}/16129")
             temp_list.append(score)
 
-        temp_matrix.append(list(temp_list))
+        matrices_dict[cpu_num].append(list(temp_list))
         temp_list = []
 
 
-
-
-
-def create_threads(articles_batch, all_articles, temp_matrix, count):
+def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
     print("---------------------------- LOADING MODEL---------------------------- ")
     start = time()
@@ -98,32 +94,6 @@ def create_threads(articles_batch, all_articles, temp_matrix, count):
 
     list_manager = multiprocessing.Manager()
     temp_list = list_manager.list()
-
-    '''
-    for article_other in all_articles:
-        article_against = preprocess(article_other)
-
-        if len(threads_list) == num_threads:
-
-            # Start the processes       
-            for thread in threads_list:
-                #print(f"Starting threads")
-                thread.start()
-
-            # Ensure all of the processes have finished
-            for thread in threads_list:
-                #print(f"Double checking threads")
-                thread.join()
-
-            threads_list = []
-
-        else:
-
-            thread = threading.Thread(target = process_wmd_similarity,
-                                        args = (article_comp, article_against, temp_scores_list))
-            threads_list.append(thread)
-
-    '''
 
     for r in range(num_threads + 1):
 
@@ -145,22 +115,21 @@ def create_threads(articles_batch, all_articles, temp_matrix, count):
 
         else:
             thread = threading.Thread(target = process_model, 
-                                        args = (articles_batch, all_articles, temp_matrix, count))
+                                        args = (articles_batch, all_articles, matrices_dict, cpu_num, count))
             threads_list.append(thread)
 
 if __name__ == "__main__":
 
+    main_start = time() 
     if True:
+
         nltk.download('stopwords')
         nltk.download('wordnet')
         nltk.download('punkt')
         nltk.download('omw-1.4')
         nltk.download('punkt')
 
-        stop_words = stopwords.words('english')
-
         lemmatizer = WordNetLemmatizer()
-
 
         all_lines = []
         directory = 'factiva_articles/'
@@ -171,7 +140,6 @@ if __name__ == "__main__":
             
             all_lines.extend(lines)
             
-
         # Extracting individual articles from the entire corpus
         total_article_count = 0
         articles_used = 0
@@ -381,20 +349,6 @@ if __name__ == "__main__":
 
     
     articles = list(articles_df['text'])
-
-    matrix_manager = multiprocessing.Manager()
-    temp_matrix = matrix_manager.list()
-
-    count = matrix_manager.list()
-    count.append(0)
-
-    #manager = multiprocessing.Manager()
-    #max_similarity = manager.list()
-    #max_similarity.append(0)
-    #min_similarity = manager.list()
-    #min_similarity.append(0)
-    
-    
     
     num_cpus = 5
     #num_cpus = multiprocessing.cpu_count()
@@ -408,14 +362,24 @@ if __name__ == "__main__":
 
     start_index = 0
 
+    matrix_manager = multiprocessing.Manager()
+    matrices_dict = matrix_manager.dict()
+
     for i in range(num_cpus):
-        end_index = int((i+1)*(len(articles_df)/num_cpus))
+        matrices_dict[i] = matrix_manager.list()
+    #temp_matrix = matrix_manager.list()
+
+    count = matrix_manager.list()
+    count.append(0)
+
+    for cpu_num in range(num_cpus):
+        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
         #print(end_index)
         #print(num_list[start_index:end_index])
 
-        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles, temp_matrix, count))
+        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles, matrices_dict, cpu_num, count))
         processes_list.append(process)
-        start_index = int((i+1)*(len(articles_df)/num_cpus))
+        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
 
     print(f"Processes list = {processes_list}")
     
@@ -427,53 +391,15 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
+    temp_matrix = []
+    for cpu_num in range(num_cpus):
+        for temp_list in matrices_dict[cpu_num]:
+            temp_matrix.append(temp_list)
+
+
     print(temp_matrix)
     print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
     #print(temp_matrix)
-
-
-    '''
-    
-    for index, row in articles_df.iterrows():
-
-        print(f"Article Index = {index}")
-        temp_scores_list = manager.list()
-
-        print(f"Temp list = {temp_scores_list}")
-        article_comp = preprocess(row['text'])
-
-
-
-        for article_other in articles:
-            
-            print(f"Jobs list = {processes_list}")
-            article_against = preprocess(article_other)
-                    
-            if len(processes_list) == num_cpus:
-
-                print(f"Jobs list full")
-
-                # Start the processes       
-                for process in processes_list:
-                    print(f"Starting jobs")
-                    process.start()
-
-                # Ensure all of the processes have finished
-                for process in processes_list:
-                    print(f"Double checking jobs")
-                    process.join()
-                
-                processes_list = []
-                
-            else:
-                
-                process = multiprocessing.Process(target = process_wmd_similarity, 
-                                                 args = (article_comp, article_against, temp_scores_list, max_similarity, min_similarity, count, model))
-                processes_list.append(process)
-
-        temp_matrix.append(temp_scores_list)
-    '''
-    #print("Max similarity: " +str(max_similarity[0]))
 
     max_similarity = 0
     min_similarity = 10000
@@ -521,3 +447,5 @@ if __name__ == "__main__":
     plt.matshow(wmd_diff_matrix, fignum=1)
 
     plt.savefig('wmd_diff.png')
+
+    print('Script took %.2f minutes to run.' % ((time() - main_start)/60))

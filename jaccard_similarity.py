@@ -434,13 +434,13 @@ if __name__ == "__main__":
     count.append(0)
 
     for cpu_num in range(num_cpus):
-        end_index = int((i+1)*(len(articles_df)/num_cpus))
+        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
         #print(end_index)
         #print(num_list[start_index:end_index])
 
         process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles, matrices_dict, cpu_num, count))
         processes_list.append(process)
-        start_index = int((i+1)*(len(articles_df)/num_cpus))
+        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
 
     print(f"Processes list = {processes_list}")
     
