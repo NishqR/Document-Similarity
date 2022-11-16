@@ -39,14 +39,6 @@ import random
 
 stop_words = stopwords.words('english')
 
-print("---------------------------- LOADING MODEL---------------------------- ")
-start = time.time()
-global model
-model = 10
-#model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
-print('Cell took %.2f seconds to run.' % (time.time() - start))
-
-
 def preprocess(sentence):
 
     sentence = sentence.lower().split()
@@ -80,32 +72,20 @@ def process_model(dummy, temp_list):
 
     print(len(temp_list))
 
-def create_threads(cpus, temp_matrix):
+def create_threads(num_cpus, matrices_list):
 
+    print("---------------------------- LOADING MODEL---------------------------- ")
+    start = time.time()
+    global model
+    model = 10
+    #model = gensim.models.KeyedVectors.load_word2vec_format('wmd/GoogleNews-vectors-negative300.bin.gz', binary=True)
+    print('Cell took %.2f seconds to run.' % (time.time() - start))
     
     num_threads = 1
     threads_list = []
 
     list_manager = multiprocessing.Manager()
     temp_list = list_manager.list()
-
-    # CREATE A NEW TEMP LIST FOR EVERY THREAD 
-
-    
-    '''
-    thread = threading.Thread(target = process_model, 
-                                        args = (num_threads, temp_list))
-
-    thread.start()
-    thread.join()
-
-    '''
-    #print(f"Thread count = {num_threads}")
-    #temp_matrix.append(5)
-
-    #for article in list_of_articles:
-
-        # create threads 
 
     for r in range(num_threads + 1):
         #print(f"Jobs list = {jobs_list}")
@@ -123,7 +103,7 @@ def create_threads(cpus, temp_matrix):
             for thread in threads_list:
                 #print(f"Double checking threads")
                 thread.join()
-                temp_matrix.append(list(temp_list))
+                matrices_list.append(list(temp_list))
             
             threads_list = []
             
@@ -138,22 +118,22 @@ def create_threads(cpus, temp_matrix):
     
 if __name__ == "__main__":
     
-    cpus = 5
-
-    matrix_manager = multiprocessing.Manager()
-    temp_matrix = matrix_manager.list()
-
-    #procs = multiprocessing.cpu_count()
-    
-    print(f"Processor count = {cpus}")
+    num_cpus = 5
+    print(f"Processor count = {num_cpus}")
     
     processes_list = []
-    print(f"Processes list = {processes_list}")
 
-    for i in range(cpus):
+    matrix_manager = multiprocessing.Manager()
+    #temp_matrix = matrix_manager.list()
+    matrices_dict = matrix_manager.dict()
+
+    for i in range(num_cpus):
+        matrices_dict[i] = matrix_manager.list()
+
+    for cpu_num in range(num_cpus):
         # for each CPU load the model (which it does automatically) and create threads
         # it wont go back to main so put the thread creation in a function
-        process = multiprocessing.Process(target = create_threads, args=(cpus, temp_matrix))
+        process = multiprocessing.Process(target = create_threads, args=(num_cpus, matrices_dict[cpu_num]))
         processes_list.append(process)
 
     
@@ -166,6 +146,12 @@ if __name__ == "__main__":
     for process in processes_list:
         print(f"Double checking process")
         process.join()
+
+
+    temp_matrix = []
+    for cpu_num in range(num_cpus):
+        for temp_list in matrices_dict[cpu_num]:
+            temp_matrix.append(temp_list)
 
     print(len(temp_matrix))
     print(temp_matrix)
