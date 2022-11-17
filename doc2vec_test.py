@@ -87,15 +87,36 @@ def process_doc2vec_similarity(base_vector, vectors):
 
 def process_embeddings(articles_batch, articles_dict, cpu_num, count):
     for article in articles_batch:
+
+        print(f"Doing embeddings for article {count[0]}")
+        start = time()
+        tokens = preprocess(article)
+        # Only handle words that appear in the doc2vec pretrained vectors. enwiki_ebow model contains 669549 vocabulary size.
+        tokens = list(filter(lambda x: x in model.wv.vocab.keys(), tokens))
+        base_vector = model.infer_vector(tokens)
+        #print("BASE VECTOR TYPE")
+        #print(type(base_vector))
+        #print(base_vector)
+        articles_dict[cpu_num].append(base_vector)
+        #print(articles_dict[cpu_num])
+        count[0]+=1
+        print('Cell took %.2f seconds to run.' % (time() - start))
         
 
 def create_threads(articles_batch, articles_dict, cpu_num, count):
 
+    print("---------------------------- LOADING MODEL---------------------------- ")
+    start = time()
+    global model
+    filename = 'doc2vec/doc2vec.bin'
+    model= Doc2Vec.load(filename)
+    print('MODEL LOADED in %.2f seconds' % (time() - start))
+
     num_threads = 1
     threads_list = []
 
-    list_manager = multiprocessing.Manager()
-    temp_list = list_manager.list()
+    #list_manager = multiprocessing.Manager()
+    #temp_list = list_manager.list()
 
     for r in range(num_threads + 1):
 
@@ -125,6 +146,7 @@ if __name__ == "__main__":
     nltk.download('omw-1.4')
     nltk.download('punkt')
 
+
     articles_df = pd.read_csv("all_articles.csv")
     articles = list(articles_df['text'])
 
@@ -132,7 +154,7 @@ if __name__ == "__main__":
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
     
-    num_threads = len(articles_df) / num_cpus
+    num_threads = len(articles) / num_cpus
     print(f"Thread count = {num_threads}")
 
     processes_list = []
@@ -144,19 +166,140 @@ if __name__ == "__main__":
     articles_dict = articles_manager.dict()
 
     for i in range(num_cpus):
-        articles_dict[i] = matrix_manager.list()
+        articles_dict[i] = articles_manager.list()
     
-    count = matrix_manager.list()
+    count = articles_manager.list()
     count.append(0)
 
     for cpu_num in range(num_cpus):
-        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+        end_index = int((cpu_num+1)*(len(articles)/num_cpus))
         #print(end_index)
         #print(num_list[start_index:end_index])
 
         process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles_dict, cpu_num, count))
         processes_list.append(process)
-        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+        start_index = int((cpu_num+1)*(len(articles)/num_cpus))
 
+    print(f"Processes list = {processes_list}")
+    
+    for process in processes_list:
+        print(f"Starting process")
+        process.start()
+
+    for process in processes_list:
+        print(f"Double checking process")
+        process.join()
+
+    print("ALL ARTICLES TOKENIZED")
+
+
+    tokenized_articles = []
+    for cpu_num in range(num_cpus):
+        #for temp_list in articles_dict[cpu_num]:
+        for article in articles_dict[cpu_num]:
+            tokenized_articles.append(article)
+
+    print(f"Length of tokenized articles list = {len(tokenized_articles)}")
+
+    tokenized_df = pd.DataFrame (tokenized_articles)
+    tokenized_df.to_csv('doc2vec_tokenized_articles.csv')
+
+    print("Tokenized articles saved to csv")
+    matrix = []
+    for index, row in articles_df.iterrows():
+        
+        temp_scores_list = []
+        
+        if row['relevant_campbell'] == 1:
+            
+            for index, row in articles_df.iterrows():
+                
+                if row['relevant_campbell'] == 1:
+                    
+                    temp_scores_list.append(1)
+                
+                else:
+                    
+                    temp_scores_list.append(0)
+                    
+        else:
+            
+            temp_scores_list = list(np.zeros(len(articles_df)))
+            
+        
+        matrix.append(temp_scores_list)
+        
+
+    plt.figure(figsize = (10,10))
+    plt.set_cmap('autumn')
+
+    plt.matshow(matrix, fignum=1)
+    plt.savefig('base_matrix.png')
+
+
+
+    temp_list = []
+    temp_matrix = []
+
+    min_similarity = 10000
+    max_similarity = 0
+    for article_base in tokenized_articles:
+    
+        temp_list = []
+        
+        for article_other in tokenized_articles:
+            
+            start = time()
+            
+            similarity = process_doc2vec_similarity(article_base, article_other)
+            
+            print('Cell took %.2f seconds to run.' % (time() - start))
+            
+
+            if similarity > max_similarity:
+                max_similarity = similarity
+                
+            if similarity < min_similarity:
+                min_similarity = similarity 
+                
+            temp_list.append(similarity)
+                    
+        temp_matrix.append(temp_list)
+
+
+    doc2vec_matrix = [] 
+
+    for temp_scores_list in temp_matrix:
+
+        normalized_list = []
+
+        for similarity_value in temp_scores_list:
+
+            normalized_similarity = similarity_value / max_similarity
+            normalized_list.append(normalized_similarity)
+
+        doc2vec_matrix.append(normalized_list)
+
+    plt.figure(figsize = (10,10))
+    plt.set_cmap('autumn')
+
+    plt.matshow(doc2vec_matrix, fignum=1)
+    plt.savefig('results/doc2vec.png')
+
+    doc2vec_diff_matrix = []
+    for i in range(len(matrix)):
+        
+        temp_list = []
+        for j in range(len(matrix[i])):
+            temp_list.append(matrix[i][j] - doc2vec_matrix[i][j])
+        
+        doc2vec_diff_matrix.append(temp_list)
+        
+    plt.figure(figsize = (10,10))
+    plt.set_cmap('autumn')
+
+    plt.matshow(doc2vec_diff_matrix, fignum=1)
+
+    plt.savefig('results/doc2vec_diff.png')
 
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
