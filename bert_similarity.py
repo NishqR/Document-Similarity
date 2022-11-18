@@ -292,20 +292,20 @@ if __name__ == "__main__":
 
                 total_relevant += 1
 
-                if tf_idf_matrix[i][j] > relevance_threshold:
+                if wmd_matrix[i][j] > relevance_threshold:
                     true_positive += 1
 
-                if tf_idf_matrix[i][j] < relevance_threshold:
+                if wmd_matrix[i][j] < relevance_threshold:
                     false_negative += 1
 
             if matrix[i][j] == 0:
 
                 total_irrelevant += 1
 
-                if tf_idf_matrix[i][j] > relevance_threshold:
+                if wmd_matrix[i][j] > relevance_threshold:
                     false_positive += 1
 
-                if tf_idf_matrix[i][j] < relevance_threshold:
+                if wmd_matrix[i][j] < relevance_threshold:
                     true_negative += 1
 
     eval_dict = {}
