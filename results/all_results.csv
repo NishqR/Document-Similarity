@@ -1,0 +1,3 @@
+﻿model,true_positive,true_negative,false_positive,false_negative,accuracy,precision,recall,f1_score
+bert,4582,408,10960,179,0.309380619,0.294814052,0.962402857,0.451361868
+,1082,9756,1612,3679,0.671957344,0.401633259,0.22726318,0.290274983
