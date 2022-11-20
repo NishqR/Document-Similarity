@@ -36,6 +36,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk import sent_tokenize
 
 stop_words = stopwords.words('english')
+lemmatizer = WordNetLemmatizer()
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -84,57 +85,26 @@ def process_doc2vec_similarity(base_vector, vectors):
     print('Cell took %.2f seconds to run.' % (time() - start))
     return highest_score
 
-def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
-    for article_comp in articles_batch:
+def process_embeddings(articles_batch, articles_dict, cpu_num, count):
+    for article in articles_batch:
 
-        temp_list = []
+        print(f"Doing embeddings for article {count[0]}")
+        start = time()
+        tokens = preprocess(article)
+        # Only handle words that appear in the doc2vec pretrained vectors. enwiki_ebow model contains 669549 vocabulary size.
+        tokens = list(filter(lambda x: x in model.wv.vocab.keys(), tokens))
+        base_vector = model.infer_vector(tokens)
+        #print("BASE VECTOR TYPE")
+        #print(type(base_vector))
+        #print(base_vector)
+        articles_dict[cpu_num].append(base_vector)
+        #print(articles_dict[cpu_num])
+        count[0]+=1
+        print('Cell took %.2f seconds to run.' % (time() - start))
+        
 
-        for article_against in all_articles:
+def create_threads(articles_batch, articles_dict, cpu_num, count):
 
-            score = process_doc2vec_similarity(article_comp, article_against)
-            count[0] += 1
-            print(f"Count - {count[0]}/16129")
-            temp_list.append(score)
-
-        matrices_dict[cpu_num].append(list(temp_list))
-        temp_list = []
-
-
-def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
-
-    num_threads = 1
-    threads_list = []
-
-    list_manager = multiprocessing.Manager()
-    temp_list = list_manager.list()
-
-    for r in range(num_threads + 1):
-
-        if len(threads_list) == num_threads:
-
-            # Start the processes       
-            for thread in threads_list:
-                #print(f"Starting threads")
-                thread.start()
-
-            # Ensure all of the processes have finished
-            for thread in threads_list:
-                #print(f"Double checking threads")
-                thread.join()
-                #temp_matrix.append(list(temp_list))
-
-            threads_list = []
-
-
-        else:
-            thread = threading.Thread(target = process_model, 
-                                        args = (articles_batch, all_articles, matrices_dict, cpu_num, count))
-            threads_list.append(thread)
-
-if __name__ == "__main__":
-
-    main_start = time() 
-    
     print("---------------------------- LOADING MODEL---------------------------- ")
     start = time()
     global model
@@ -142,38 +112,49 @@ if __name__ == "__main__":
     model= Doc2Vec.load(filename)
     print('MODEL LOADED in %.2f seconds' % (time() - start))
 
+    num_threads = 1
+    threads_list = []
+
+    #list_manager = multiprocessing.Manager()
+    #temp_list = list_manager.list()
+
+    for r in range(num_threads + 1):
+
+        if len(threads_list) == num_threads:
+
+            # Start the processes       
+            for thread in threads_list:
+                thread.start()
+
+            # Ensure all of the processes have finished
+            for thread in threads_list:
+                thread.join()
+
+            threads_list = []
+
+        else:
+            thread = threading.Thread(target = process_embeddings, 
+                                        args = (articles_batch, articles_dict, cpu_num, count))
+            threads_list.append(thread)
+
+if __name__ == "__main__":
+
+    main_start = time() 
     nltk.download('stopwords')
     nltk.download('wordnet')
     nltk.download('punkt')
     nltk.download('omw-1.4')
     nltk.download('punkt')
 
-    lemmatizer = WordNetLemmatizer()
 
     articles_df = pd.read_csv("all_articles.csv")
-
-    #articles = list(articles_df['text'])
-    articles = []
-
-    tokenizer_start = time()
-    for index, row in articles_df.iterrows():
-        print(f"Doing embeddings for article {index}")
-        start = time()
-        tokens = preprocess(row['text'])
-        # Only handle words that appear in the doc2vec pretrained vectors. enwiki_ebow model contains 669549 vocabulary size.
-        tokens = list(filter(lambda x: x in model.wv.vocab.keys(), tokens))
-        base_vector = model.infer_vector(tokens)
-        articles.append(base_vector)
-        print('Cell took %.2f seconds to run.' % (time() - start))
-    
-    print('All emeddings completed in %.2f seconds' % (time() - tokenizer_start))
-
+    articles = list(articles_df['text'])
 
     num_cpus = 5
     #num_cpus = multiprocessing.cpu_count()
     print(f"Processor count = {num_cpus}")
     
-    num_threads = len(articles_df) / num_cpus
+    num_threads = len(articles) / num_cpus
     print(f"Thread count = {num_threads}")
 
     processes_list = []
@@ -181,24 +162,23 @@ if __name__ == "__main__":
 
     start_index = 0
 
-    matrix_manager = multiprocessing.Manager()
-    matrices_dict = matrix_manager.dict()
+    articles_manager = multiprocessing.Manager()
+    articles_dict = articles_manager.dict()
 
     for i in range(num_cpus):
-        matrices_dict[i] = matrix_manager.list()
-    #temp_matrix = matrix_manager.list()
-
-    count = matrix_manager.list()
+        articles_dict[i] = articles_manager.list()
+    
+    count = articles_manager.list()
     count.append(0)
 
     for cpu_num in range(num_cpus):
-        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+        end_index = int((cpu_num+1)*(len(articles)/num_cpus))
         #print(end_index)
         #print(num_list[start_index:end_index])
 
-        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles, matrices_dict, cpu_num, count))
+        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles_dict, cpu_num, count))
         processes_list.append(process)
-        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+        start_index = int((cpu_num+1)*(len(articles)/num_cpus))
 
     print(f"Processes list = {processes_list}")
     
@@ -210,7 +190,21 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
+    print("ALL ARTICLES TOKENIZED")
 
+
+    tokenized_articles = []
+    for cpu_num in range(num_cpus):
+        #for temp_list in articles_dict[cpu_num]:
+        for article in articles_dict[cpu_num]:
+            tokenized_articles.append(article)
+
+    print(f"Length of tokenized articles list = {len(tokenized_articles)}")
+
+    tokenized_df = pd.DataFrame (tokenized_articles)
+    tokenized_df.to_csv('doc2vec_tokenized_articles.csv')
+
+    print("Tokenized articles saved to csv")
     matrix = []
     for index, row in articles_df.iterrows():
         
@@ -241,31 +235,39 @@ if __name__ == "__main__":
 
     plt.matshow(matrix, fignum=1)
     plt.savefig('base_matrix.png')
-    #plt.show()
-    
+
+
+
+    temp_list = []
     temp_matrix = []
-    for cpu_num in range(num_cpus):
-        for temp_list in matrices_dict[cpu_num]:
-            temp_matrix.append(temp_list)
 
-
-    print(temp_matrix)
-    print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
-    #print(temp_matrix)
-
-    max_similarity = 0
     min_similarity = 10000
+    max_similarity = 0
+    for article_base in tokenized_articles:
+    
+        temp_list = []
+        
+        for article_other in tokenized_articles:
+            
+            start = time()
+            
+            similarity = process_doc2vec_similarity(article_base, article_other)
+            
+            print('Cell took %.2f seconds to run.' % (time() - start))
+            
 
-    for list_ in temp_matrix:
-        for val_ in list_:
+            if similarity > max_similarity:
+                max_similarity = similarity
+                
+            if similarity < min_similarity:
+                min_similarity = similarity 
+                
+            temp_list.append(similarity)
+                    
+        temp_matrix.append(temp_list)
 
-            if val_ > max_similarity:
-                max_similarity = val_
 
-            if val_ < min_similarity:
-                min_similarity = val_
-
-    wmd_matrix = []
+    doc2vec_matrix = [] 
 
     for temp_scores_list in temp_matrix:
 
@@ -276,28 +278,87 @@ if __name__ == "__main__":
             normalized_similarity = similarity_value / max_similarity
             normalized_list.append(normalized_similarity)
 
-        wmd_matrix.append(normalized_list)
+        doc2vec_matrix.append(normalized_list)
 
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('results/doc2vec.png')
+    plt.matshow(doc2vec_matrix, fignum=1)
+    plt.savefig('results/doc2vec/doc2vec.png')
 
-    wmd_diff_matrix = []
+    doc2vec_diff_matrix = []
     for i in range(len(matrix)):
         
         temp_list = []
         for j in range(len(matrix[i])):
-            temp_list.append(matrix[i][j] - wmd_matrix[i][j])
+            temp_list.append(matrix[i][j] - doc2vec_matrix[i][j])
         
-        wmd_diff_matrix.append(temp_list)
+        doc2vec_diff_matrix.append(temp_list)
         
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
 
-    plt.matshow(wmd_diff_matrix, fignum=1)
+    plt.matshow(doc2vec_diff_matrix, fignum=1)
 
-    plt.savefig('results/doc2vec_diff.png')
+    plt.savefig('results/doc2vec/doc2vec_diff.png')
 
+    # EVALUATION SUITE
+    relevance_threshold = 0.6
+    true_positive = 0
+    false_negative = 0
+    true_negative = 0
+    false_positive = 0
+
+    total_relevant = 0
+    total_irrelevant = 0
+    for i in range(len(matrix)):
+        
+        for j in range(len(matrix[i])):
+
+            if matrix[i][j] == 1:
+
+                total_relevant += 1
+
+                if doc2vec_matrix[i][j] > relevance_threshold:
+                    true_positive += 1
+
+                if doc2vec_matrix[i][j] < relevance_threshold:
+                    false_negative += 1
+
+            if matrix[i][j] == 0:
+
+                total_irrelevant += 1
+
+                if doc2vec_matrix[i][j] > relevance_threshold:
+                    false_positive += 1
+
+                if doc2vec_matrix[i][j] < relevance_threshold:
+                    true_negative += 1
+
+    eval_dict = {}
+
+    print(f"Total relevant = {total_relevant}")
+    print(f"Total total_irrelevant = {total_irrelevant}")
+
+    print(f"True positive = {true_positive}")
+    print(f"True Negative = {true_negative}")
+    print(f"False_negative = {false_negative}")
+    print(f"false_positive = {false_positive}")
+
+    eval_dict['true_positive'] = true_positive
+    eval_dict['true_negative'] = true_negative
+    eval_dict['false_positive'] = false_positive
+    eval_dict['false_negative'] = false_negative
+    eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
+    eval_dict['precision'] = true_positive / (true_positive + false_positive)
+    eval_dict['recall'] = true_positive / (true_positive + false_negative)
+    eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
+    #print(f"correctly_classified documents  = {correctly_classified}")
+    print(f"Accuracy = {eval_dict['accuracy']}")
+    print(f"Precision = {eval_dict['precision']}")
+    print(f"Recall = {eval_dict['recall']}")
+    print(f"F1-Score = {eval_dict['f1_score']}")
+
+    eval_df = pd.DataFrame (pd.Series(eval_dict)).T
+    eval_df.to_csv('results/doc2vec/doc2vec_metrics.csv')
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
