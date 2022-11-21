@@ -172,6 +172,16 @@ if __name__ == "__main__":
         print(f"Double checking process")
         process.join()
 
+    
+
+
+    temp_matrix = []
+    for cpu_num in range(num_cpus):
+        for temp_list in matrices_dict[cpu_num]:
+            temp_matrix.append(temp_list)
+
+    np.save('results/tf_idf/tf_idf_matrix.npy', np.array(temp_matrix))
+
     matrix = []
     for index, row in articles_df.iterrows():
         
@@ -200,20 +210,9 @@ if __name__ == "__main__":
     plt.set_cmap('autumn')
 
     plt.matshow(matrix, fignum=1)
-    plt.savefig('base_matrix.png')
-    #plt.show()
-
-
-    temp_matrix = []
-    for cpu_num in range(num_cpus):
-        for temp_list in matrices_dict[cpu_num]:
-            temp_matrix.append(temp_list)
-
-
-    print(temp_matrix)
+    plt.savefig('results/base_matrix.png')
     print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
-    #print(temp_matrix)
-
+    
     max_similarity = 0
     min_similarity = 10000
 
@@ -238,6 +237,11 @@ if __name__ == "__main__":
             normalized_list.append(normalized_similarity)
 
         tf_idf_matrix.append(normalized_list)
+
+    
+    
+
+
 
     plt.figure(figsize = (10,10))
     plt.set_cmap('autumn')
