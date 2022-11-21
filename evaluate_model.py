@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-model_name = 'tf_idf'
-num_cpus = 4
+model_name = 'use'
 temp_matrix = np.load('results/'+model_name+'/'+model_name+'_matrix.npy')
 articles_df = pd.read_csv("all_articles.csv")
 

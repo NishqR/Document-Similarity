@@ -97,7 +97,7 @@ def process_jaccard_similarity(base_document, documents):
         tokens = preprocess(document)
         all_tokens.append(tokens)
 
-        #print("making word tokens at index:", i)
+        
 
     all_scores = []
     for tokens in all_tokens:
@@ -120,12 +120,10 @@ def process_jaccard_similarity(base_document, documents):
 
 def process_wmd_similarity(article_comp, article_against):
     start = time()
-    #base_document = preprocess(base_document)
-    #documents = preprocess(documents[0])
     
     distance = model.wmdistance(article_comp, article_against)
     #distance = model
-    #print(f"Distance = {distance}")
+    
     print('Cell took %.2f seconds to run.' % (time() - start))
     
     try: 
@@ -140,11 +138,7 @@ def process_model(articles_batch, all_articles, matrices_dict, cpu_num, count):
     for article_comp in articles_batch:
 
         temp_list = []
-        #article_comp = preprocess(article_comp)
-
         for article_against in all_articles:
-
-            #article_against = preprocess(article_against)
 
             score = process_jaccard_similarity(article_comp, article_against)
             count[0] += 1
@@ -170,14 +164,14 @@ def create_threads(articles_batch, all_articles, matrices_dict, cpu_num, count):
 
             # Start the processes       
             for thread in threads_list:
-                #print(f"Starting threads")
+                
                 thread.start()
 
             # Ensure all of the processes have finished
             for thread in threads_list:
-                #print(f"Double checking threads")
+                
                 thread.join()
-                #temp_matrix.append(list(temp_list))
+                
 
             threads_list = []
 
@@ -235,156 +229,13 @@ if __name__ == "__main__":
     for process in processes_list:
         print(f"Double checking process")
         process.join()
-
-    matrix = []
-    for index, row in articles_df.iterrows():
-        
-        temp_scores_list = []
-        
-        if row['relevant_campbell'] == 1:
-            
-            for index, row in articles_df.iterrows():
-                
-                if row['relevant_campbell'] == 1:
-                    
-                    temp_scores_list.append(1)
-                
-                else:
-                    
-                    temp_scores_list.append(0)
-                    
-        else:
-            
-            temp_scores_list = list(np.zeros(len(articles_df)))
-            
-        
-        matrix.append(temp_scores_list)
-        
-    plt.figure(figsize = (10,10))
-    plt.set_cmap('autumn')
-
-    plt.matshow(matrix, fignum=1)
-    plt.savefig('base_matrix.png')
-    #plt.show()
     
     temp_matrix = []
     for cpu_num in range(num_cpus):
         for temp_list in matrices_dict[cpu_num]:
             temp_matrix.append(temp_list)
 
-    print(temp_matrix)
     print(f"LENGTH OF TEMP MATRIX: {len(temp_matrix)}")
-    #print(temp_matrix)
-
-
-    max_similarity = 0
-    min_similarity = 10000
-
-    for list_ in temp_matrix:
-        for val_ in list_:
-
-            if val_ > max_similarity:
-                max_similarity = val_
-
-            if val_ < min_similarity:
-                min_similarity = val_
-
-    wmd_matrix = temp_matrix
     
-    wmd_matrix = []
-
-    for temp_scores_list in temp_matrix:
-
-        normalized_list = []
-
-        for similarity_value in temp_scores_list:
-
-            normalized_similarity = similarity_value / max_similarity
-            normalized_list.append(normalized_similarity)
-
-        wmd_matrix.append(normalized_list)
-    
-
-    plt.figure(figsize = (10,10))
-    plt.set_cmap('autumn')
-
-    plt.matshow(wmd_matrix, fignum=1)
-    plt.savefig('results/jaccard/jaccard.png')
-
-    wmd_diff_matrix = []
-    for i in range(len(matrix)):
-        
-        temp_list = []
-        for j in range(len(matrix[i])):
-            temp_list.append(matrix[i][j] - wmd_matrix[i][j])
-        
-        wmd_diff_matrix.append(temp_list)
-        
-    plt.figure(figsize = (10,10))
-    plt.set_cmap('autumn')
-
-    plt.matshow(wmd_diff_matrix, fignum=1)
-
-
-    plt.savefig('results/jaccard/jaccard_diff.png')
-
-    # EVALUATION SUITE
-    relevance_threshold = 0.6
-    true_positive = 0
-    false_negative = 0
-    true_negative = 0
-    false_positive = 0
-
-    total_relevant = 0
-    total_irrelevant = 0
-    for i in range(len(matrix)):
-        
-        for j in range(len(matrix[i])):
-
-            if matrix[i][j] == 1:
-
-                total_relevant += 1
-
-                if wmd_matrix[i][j] > relevance_threshold:
-                    true_positive += 1
-
-                if wmd_matrix[i][j] < relevance_threshold:
-                    false_negative += 1
-
-            if matrix[i][j] == 0:
-
-                total_irrelevant += 1
-
-                if wmd_matrix[i][j] > relevance_threshold:
-                    false_positive += 1
-
-                if wmd_matrix[i][j] < relevance_threshold:
-                    true_negative += 1
-
-    eval_dict = {}
-
-    print(f"Total relevant = {total_relevant}")
-    print(f"Total total_irrelevant = {total_irrelevant}")
-
-    print(f"True positive = {true_positive}")
-    print(f"True Negative = {true_negative}")
-    print(f"False_negative = {false_negative}")
-    print(f"false_positive = {false_positive}")
-
-    eval_dict['true_positive'] = true_positive
-    eval_dict['true_negative'] = true_negative
-    eval_dict['false_positive'] = false_positive
-    eval_dict['false_negative'] = false_negative
-    eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
-    eval_dict['precision'] = true_positive / (true_positive + false_positive)
-    eval_dict['recall'] = true_positive / (true_positive + false_negative)
-    eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
-    #print(f"correctly_classified documents  = {correctly_classified}")
-    print(f"Accuracy = {eval_dict['accuracy']}")
-    print(f"Precision = {eval_dict['precision']}")
-    print(f"Recall = {eval_dict['recall']}")
-    print(f"F1-Score = {eval_dict['f1_score']}")
-
-    eval_df = pd.DataFrame (pd.Series(eval_dict)).T
-    eval_df.to_csv('results/jaccard/jaccard_metrics.csv')
+    np.save('results/jaccard/jaccard_matrix.npy', np.array(temp_matrix))
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
