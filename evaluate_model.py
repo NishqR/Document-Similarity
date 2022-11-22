@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-model_name = 'use'
+model_name = 'bert'
 temp_matrix = np.load('results/'+model_name+'/'+model_name+'_matrix.npy')
 articles_df = pd.read_csv("all_articles.csv")
 
