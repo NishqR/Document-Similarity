@@ -116,6 +116,7 @@ if __name__ == "__main__":
     global model
     # This will download and load the pretrained model offered by UKPLab.
     model = SentenceTransformer('bert-base-nli-mean-tokens')
+    stop_words = set(stopwords.words('english'))
     print('MODEL LOADED in %.2f seconds' % (time() - start))
 
     nltk.download('stopwords')
@@ -132,64 +133,77 @@ if __name__ == "__main__":
     articles = []
 
     embeddings_start = time()
-    for index, row in articles_df.iterrows():
-        print(f"Doing embeddings for article {index}")
-        start = time()
-        sentences = sent_tokenize(row['text'])
-        base_embeddings_sentences = model.encode(sentences)
-        base_embeddings = np.mean(np.array(base_embeddings_sentences), axis=0)
-        articles.append(base_embeddings)
-        print('Cell took %.2f seconds to run.' % (time() - start))
-    
 
+    embeddings_dict = {}
+    count_dict = {}
+    for index, row in articles_df.iterrows():
+        if index < 25:
+
+            #print(f"Doing embeddings for article {index}")
+            start = time()
+            
+            print(row['text'])
+            print(len(row['text']))
+            print("--------------------------------------------------------------------------------------------")
+            sentences = sent_tokenize(row['text'])
+            print(sentences)
+            print(len(sentences))
+            print("--------------------------------------------------------------------------------------------")
+            #print(sentences[1])
+            #print(sentences[1].split(" ")[0])
+
+            for sentence in sentences:
+                words_in_sentence = list(sentence.split(" "))
+                for word_ in words_in_sentence:
+
+                    word_ = word_.lower()
+                    word_ = word_.strip()
+                    word_ = word_.replace(" ", "")
+                    word_ = lemmatizer.lemmatize(word_)
+
+                    word_embedding = model.encode(word_)
+                    if word_ not in stop_words and word_ not in string.punctuation:
+                        if word_ not in embeddings_dict.keys():
+                            embeddings_dict[word_] = model.encode(word_)
+                            count_dict[word_] = 1
+
+                        else:
+                            count_dict[word_] += 1
+
+            print(sorted(((v, k) for k, v in count_dict.items()), reverse=True))
+
+            
+            '''embedding_1 = model.encode("finance")
+            embedding_2 = model.encode("financial")
+            embedding_3 = model.encode("corporation")
+            embedding_4 = model.encode("money")
+
+            lemmatized = lemmatizer.lemmatize("corpora")
+            print(lemmatized)
+            '''
+            # lowercase
+            # remove trailing spaces
+            # lemmatize
+            # add count and embedding to dict
+
+            #print(cosine_similarity([embedding_1], [embedding_2]).flatten())
+            #print(cosine_similarity([embedding_1], [embedding_2]).flatten())
+            #print(cosine_similarity([embedding_1], [embedding_3]).flatten())
+            #print(cosine_similarity([embedding_1], [embedding_4]).flatten())
+            #print(embedding_1, embedding_2, embedding_3, embedding_4)
+            '''
+            base_embeddings_sentences = model.encode(sentences)
+            print(base_embeddings_sentences)
+            print(len(base_embeddings_sentences[1]))
+            print("--------------------------------------------------------------------------------------------")
+            base_embeddings = np.mean(np.array(base_embeddings_sentences), axis=0)
+            print(np.array(base_embeddings_sentences))
+            print(len(np.array(base_embeddings_sentences)[1]))
+            print("--------------------------------------------------------------------------------------------")
+            articles.append(base_embeddings)
+            print('Cell took %.2f seconds to run.' % (time() - start))
+    
+            '''
     print('All emeddings completed in %.2f seconds' % (time() - embeddings_start))
 
-    num_cpus = 5
-    #num_cpus = multiprocessing.cpu_count()
-    print(f"Processor count = {num_cpus}")
-    
-    num_threads = len(articles_df) / num_cpus
-    print(f"Thread count = {num_threads}")
-
-    processes_list = []
-    print(f"Processes list = {processes_list}")
-
-    start_index = 0
-
-    matrix_manager = multiprocessing.Manager()
-    matrices_dict = matrix_manager.dict()
-
-    for i in range(num_cpus):
-        matrices_dict[i] = matrix_manager.list()
-    #temp_matrix = matrix_manager.list()
-
-    count = matrix_manager.list()
-    count.append(0)
-
-    for cpu_num in range(num_cpus):
-        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
-        #print(end_index)
-        #print(num_list[start_index:end_index])
-
-        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], articles, matrices_dict, cpu_num, count))
-        processes_list.append(process)
-        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
-
-    print(f"Processes list = {processes_list}")
-    
-    for process in processes_list:
-        print(f"Starting process")
-        process.start()
-
-    for process in processes_list:
-        print(f"Double checking process")
-        process.join()
-
-    
-    temp_matrix = []
-    for cpu_num in range(num_cpus):
-        for temp_list in matrices_dict[cpu_num]:
-            temp_matrix.append(temp_list)
-
-    np.save('results/bert/bert_matrix.npy', np.array(temp_matrix))
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
