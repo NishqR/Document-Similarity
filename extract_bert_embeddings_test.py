@@ -269,9 +269,4 @@ if __name__ == "__main__":
 
     embeddings_dict = multiprocess_embeddings(6, relevant_words)
 
-
-
-    
-    
-    '''
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
