@@ -75,46 +75,23 @@ def process_bert_similarity(base_embeddings, documents):
     print('Cell took %.2f seconds to run.' % (time() - start))
     return highest_score
 
-def process_model(articles_batch, embeddings_dict, count_dict, count):
+def process_model(words_batch, embeddings_dict, count):
 
-    for article in articles_batch:
-        
-        print(f"Doing embeddings for article {count[0]}")
-        
+    for word_ in words_batch:
+
+        print(f"Doing embeddings for word {count[0]}")
         start = time()
-        
-        sentences = sent_tokenize(article)
-        
-        for sentence in sentences:
-            words_in_sentence = list(sentence.split(" "))
-            for word_ in words_in_sentence:
 
-                word_ = word_.lower()
-                word_ = word_.strip()
-                word_ = word_.replace(" ", "")
-                word_ = word_.replace(",", "")
-                word_ = word_.replace(".", "")
-                word_ = word_.replace(":", "")
-
-                if lemmatizer.lemmatize(word_) != 'ha' and lemmatizer.lemmatize(word_) != 'wa':
-                    word_ = lemmatizer.lemmatize(word_)
-
-                if word_ not in stop_words and word_ not in string.punctuation:
-                    if word_ not in embeddings_dict.keys():
-                        #embeddings_dict[word_] = model.encode(word_)
-                        embeddings_dict[word_] = ""
-                        count_dict[word_] = 1
-
-                    else:
-                        count_dict[word_] += 1
+        embeddings_dict[word_] = model.encode(word_)
 
         count[0]+=1
         print('Cell took %.2f seconds to run.' % (time() - start))
 
 
-def create_threads(articles_batch, embeddings_dict, count_dict, count):
 
-    '''
+def create_threads(words_batch, embeddings_dict, count):
+
+    
     print("---------------------------- LOADING MODEL---------------------------- ")
     start = time()
     global model
@@ -122,7 +99,7 @@ def create_threads(articles_batch, embeddings_dict, count_dict, count):
     model = SentenceTransformer('bert-base-nli-mean-tokens')
     
     print('MODEL LOADED in %.2f seconds' % (time() - start))
-    '''
+    
     num_threads = 1
     threads_list = []
 
@@ -144,8 +121,50 @@ def create_threads(articles_batch, embeddings_dict, count_dict, count):
 
         else:
             thread = threading.Thread(target = process_model, 
-                                        args = (articles_batch, embeddings_dict, count_dict, count))
+                                        args = (words_batch, embeddings_dict, count))
             threads_list.append(thread)
+
+def multiprocess_embeddings(num_cpus, words_list):
+
+    num_cpus = 6
+    #num_cpus = multiprocessing.cpu_count()
+    print(f"Processor count = {num_cpus}")
+    
+    num_threads = len(words_list) / num_cpus
+    print(f"Thread count = {num_threads}")
+
+    processes_list = []
+    
+    start_index = 0
+
+    embeddings_manager = multiprocessing.Manager()
+    
+    embeddings_dict = embeddings_manager.dict()
+    #count_dict = embeddings_manager.dict()
+
+    count = embeddings_manager.list()
+    count.append(0)
+    
+    for cpu_num in range(num_cpus):
+        end_index = int((cpu_num+1)*(len(words_list)/num_cpus))
+        #print(end_index)
+        #print(num_list[start_index:end_index])
+
+        process = multiprocessing.Process(target = create_threads, args=(words_list[start_index:end_index], embeddings_dict, count))
+        processes_list.append(process)
+        start_index = int((cpu_num+1)*(len(words_list)/num_cpus))
+
+    print(f"Processes list = {processes_list}")
+    
+    for process in processes_list:
+        print(f"Starting process")
+        process.start()
+
+    for process in processes_list:
+        print(f"Double checking process")
+        process.join()
+
+    return embeddings_dict
 
 if __name__ == "__main__":
 
@@ -248,46 +267,11 @@ if __name__ == "__main__":
     print("UNIQUE IRRELEVANT")
     print(unique_irrelevant)
 
+    embeddings_dict = multiprocess_embeddings(6, relevant_words)
 
 
-    '''
-    num_cpus = 6
-    #num_cpus = multiprocessing.cpu_count()
-    print(f"Processor count = {num_cpus}")
+
     
-    num_threads = len(articles) / num_cpus
-    print(f"Thread count = {num_threads}")
-
-    processes_list = []
-    print(f"Processes list = {processes_list}")
-
-    start_index = 0
-
-    embeddings_manager = multiprocessing.Manager()
     
-    embeddings_dict = embeddings_manager.dict()
-    #count_dict = embeddings_manager.dict()
-
-    count = embeddings_manager.list()
-    count.append(0)
-    
-    for cpu_num in range(num_cpus):
-        end_index = int((cpu_num+1)*(len(articles)/num_cpus))
-        #print(end_index)
-        #print(num_list[start_index:end_index])
-
-        process = multiprocessing.Process(target = create_threads, args=(articles[start_index:end_index], embeddings_dict, count_dict, count))
-        processes_list.append(process)
-        start_index = int((cpu_num+1)*(len(articles)/num_cpus))
-
-    print(f"Processes list = {processes_list}")
-    
-    for process in processes_list:
-        print(f"Starting process")
-        process.start()
-
-    for process in processes_list:
-        print(f"Double checking process")
-        process.join()
     '''
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
