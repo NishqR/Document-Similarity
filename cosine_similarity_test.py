@@ -31,10 +31,11 @@ model = SentenceTransformer('bert-base-nli-mean-tokens')
 
 print('MODEL LOADED in %.2f seconds' % (time() - start))
 
-embedding_1 = model.encode("fund")
-embedding_2 = model.encode("market")
-embedding_3 = model.encode("company")
-embedding_4 = model.encode("pizza")
+embedding_1 = model.encode("cent")
+#print(embedding_1)
+embedding_2 = model.encode("cent")
+embedding_3 = model.encode("cent")
+embedding_4 = model.encode("cent")
 
 # lowercase
 # remove trailing spaces

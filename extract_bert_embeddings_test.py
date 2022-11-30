@@ -206,6 +206,10 @@ if __name__ == "__main__":
                     word_ = word_.replace(",", "")
                     word_ = word_.replace(".", "")
                     word_ = word_.replace(":", "")
+                    word_ = word_.replace("/", "")
+                    word_ = word_.replace("-", "")
+                    word_ = word_.replace("(", "")
+                    word_ = word_.replace(")", "")
 
                     if lemmatizer.lemmatize(word_) != 'ha' and lemmatizer.lemmatize(word_) != 'wa':
                         word_ = lemmatizer.lemmatize(word_)
@@ -267,6 +271,31 @@ if __name__ == "__main__":
     print("UNIQUE IRRELEVANT")
     print(unique_irrelevant)
 
-    embeddings_dict = multiprocess_embeddings(6, relevant_words)
+    relevant_embeddings_dict = multiprocess_embeddings(6, unique_relevant)
+    
+    relevant_df['relevancy_score'] = np.zeros(len(relevant_df))
+    relevant_df['weighted_score'] = np.ones(len(relevant_df))
 
+    for word_comp in unique_relevant:
+        for word_against in unique_relevant:
+            relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([relevant_embeddings_dict[word_comp]], [relevant_embeddings_dict[word_against]]).flatten())
+
+    relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
+    relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
+    relevant_df.head(num_words_head - len(common_words)).to_csv("relevant_test.csv")
+    
+    irrelevant_embeddings_dict = multiprocess_embeddings(6, unique_irrelevant)
+    irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
+    irrelevant_df['weighted_score'] = np.ones(len(irrelevant_df))
+
+    for word_comp in unique_irrelevant:
+        for word_against in unique_irrelevant:
+            irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([irrelevant_embeddings_dict[word_comp]], [irrelevant_embeddings_dict[word_against]]).flatten())
+
+    irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
+    irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
+    irrelevant_df.head(num_words_head - len(common_words)).to_csv("irrelevant_test.csv")
+
+    #print(embeddings_dict)
+    #print(len(list(embeddings_dict.keys())))
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
