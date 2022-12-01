@@ -1,0 +1,7 @@
+
+doc2vec/doc2vec.bin.syn0.npy
+doc2vec/doc2vec.bin
+use/universal-sentence-encoder_4/saved_model.pb
+wmd/GoogleNews-vectors-negative300.bin.gz
+doc2vec/doc2vec.bin.syn1neg.npy
+use/universal-sentence-encoder_4/variables/variables.data-00000-of-00001

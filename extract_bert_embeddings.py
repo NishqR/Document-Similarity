@@ -253,10 +253,11 @@ if __name__ == "__main__":
         num_runs += 1
         run_relevant = False
 
-    num_words_head = 40
+    num_words_relevant = 40
+    num_words_irrelevant = 40
 
-    relevant_words = list(relevant_df.head(num_words_head).word)
-    irrelevant_words = list(irrelevant_df.head(num_words_head).word)
+    relevant_words = list(relevant_df.head(num_words_relevant).word)
+    irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
     common_words = intersection(relevant_words, irrelevant_words)
     
     unique_relevant = [x for x in relevant_words if x not in common_words]
@@ -282,7 +283,7 @@ if __name__ == "__main__":
 
     relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
     relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
-    relevant_df.head(num_words_head - len(common_words)).to_csv("relevant_test.csv")
+    relevant_df.head(num_words_relevant - len(common_words)).to_csv("relevant_test.csv")
     
     irrelevant_embeddings_dict = multiprocess_embeddings(6, unique_irrelevant)
     irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
@@ -294,7 +295,7 @@ if __name__ == "__main__":
 
     irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
     irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
-    irrelevant_df.head(num_words_head - len(common_words)).to_csv("irrelevant_test.csv")
+    irrelevant_df.head(num_words_irrelevant - len(common_words)).to_csv("irrelevant_test.csv")
 
     #print(embeddings_dict)
     #print(len(list(embeddings_dict.keys())))
