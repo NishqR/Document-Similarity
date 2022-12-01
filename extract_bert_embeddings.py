@@ -253,7 +253,7 @@ if __name__ == "__main__":
         num_runs += 1
         run_relevant = False
 
-    num_words_head = 30
+    num_words_head = 40
 
     relevant_words = list(relevant_df.head(num_words_head).word)
     irrelevant_words = list(irrelevant_df.head(num_words_head).word)
