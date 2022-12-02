@@ -168,7 +168,7 @@ def multiprocess_embeddings(num_cpus, words_list):
 
 if __name__ == "__main__":
 
-    run_relevant = True
+    run_relevant = False
     main_start = time() 
 
     #articles_df = pd.read_csv("all_articles.csv")
@@ -237,6 +237,8 @@ if __name__ == "__main__":
             # apply normalization techniques
             apply_scale_column = 'frequency'
             relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(relevant_df[apply_scale_column]).reshape(-1,1))
+            
+            #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column][0:len(relevant_df)]).reshape(-1,1))
               
             relevant_df.to_csv("relevant_words_count.csv")
             
@@ -253,10 +255,10 @@ if __name__ == "__main__":
             irrelevant_df.to_csv("irrelevant_words_count.csv")
         
         num_runs += 1
-        run_relevant = False
+        run_relevant = True
 
-    num_words_relevant = 50
-    num_words_irrelevant = 50
+    num_words_relevant = 70
+    num_words_irrelevant = 70
 
     relevant_words = list(relevant_df.head(num_words_relevant).word)
     irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
