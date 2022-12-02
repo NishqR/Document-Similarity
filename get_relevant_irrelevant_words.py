@@ -168,11 +168,11 @@ def multiprocess_embeddings(num_cpus, words_list):
 
 if __name__ == "__main__":
 
-    run_relevant = False
+    run_relevant = True
     main_start = time() 
 
     #articles_df = pd.read_csv("all_articles.csv")
-    articles_df = pd.read_csv("labelled_1.csv")
+    articles_df = pd.read_csv("all_articles.csv")
     articles_df.fillna("", inplace=True)
 
     num_runs = 0
@@ -235,8 +235,8 @@ if __name__ == "__main__":
             relevant_df = relevant_df.sort_values(by=['frequency'], ascending=False)
             
             # apply normalization techniques
-            apply_scale_column = 'frequency'
-            relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(relevant_df[apply_scale_column]).reshape(-1,1))
+            #apply_scale_column = 'frequency'
+            #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(relevant_df[apply_scale_column]).reshape(-1,1))
             
             #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column][0:len(relevant_df)]).reshape(-1,1))
               
@@ -249,57 +249,101 @@ if __name__ == "__main__":
             irrelevant_df = irrelevant_df.sort_values(by=['frequency'], ascending=False)
             
             # apply normalization techniques
-            apply_scale_column = 'frequency'
-            irrelevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column]).reshape(-1,1))
+            #apply_scale_column = 'frequency'
+            #irrelevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column]).reshape(-1,1))
             
             irrelevant_df.to_csv("irrelevant_words_count.csv")
         
         num_runs += 1
-        run_relevant = True
+        run_relevant = False
 
-    num_words_relevant = 70
-    num_words_irrelevant = 70
+    # SCALE THE FREQUENCIES
+    
+    # First calculate the max frequency
+    max_val = 0
+    if relevant_df['frequency'].max() > irrelevant_df['frequency'].max():
+        max_val = relevant_df['frequency'].max()
+    else:
+        max_val = irrelevant_df['frequency'].max()
 
-    relevant_words = list(relevant_df.head(num_words_relevant).word)
-    irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
+    # Scale frequencies for relevant df
+    normalized_freq = []
+    for freq_ in list(relevant_df['frequency']):
+
+        scaled_freq = freq_ / max_val
+        normalized_freq.append(scaled_freq)
+
+    relevant_df['frequency_scaled'] = normalized_freq
+
+    # Scale frequencies for irrelevant df
+    normalized_freq = []
+    for freq_ in list(irrelevant_df['frequency']):
+
+        scaled_freq = freq_ / max_val
+        normalized_freq.append(scaled_freq)
+
+    irrelevant_df['frequency_scaled'] = normalized_freq
+    
+    '''
+    # Get common words between both lists
+    relevant_words = list(relevant_df.word)
+    irrelevant_words = list(irrelevant_df.word)
     common_words = intersection(relevant_words, irrelevant_words)
     
-    unique_relevant = [x for x in relevant_words if x not in common_words]
-    unique_irrelevant = [x for x in irrelevant_words if x not in common_words]
+    # Modify frequency scaled value based on difference in scaled frequency
+    for common_word in common_words:
+        #print(common_word)
+        relevant_freq = float(relevant_df[relevant_df['word'] == common_word]['frequency_scaled'])
+        irrelevant_freq = float(irrelevant_df[irrelevant_df['word'] == common_word]['frequency_scaled'])
 
+        #print(f"Relevant freq = {relevant_freq}")
+        #print(f"Irrelevant freq = {irrelevant_freq}")
+
+        if relevant_freq > irrelevant_freq:
+            relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = relevant_freq - irrelevant_freq
+            irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = 0
+
+        else:
+            irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = irrelevant_freq - relevant_freq
+            relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = 0
+    '''
+    # Sort dataframes again by scaled frequencies    
+    relevant_df = relevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+    irrelevant_df = irrelevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+    
+    num_words_relevant = 70
+    num_words_irrelevant = 70
+    
+    relevant_words = list(relevant_df.head(num_words_relevant).word)
+    irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
+    
     print("COMMON WORDS")
     print(common_words)
-    
-    print("UNIQUE RELEVANT")
-    print(unique_relevant)
 
-    print("UNIQUE IRRELEVANT")
-    print(unique_irrelevant)
-
-    relevant_embeddings_dict = multiprocess_embeddings(6, unique_relevant)
+    relevant_embeddings_dict = multiprocess_embeddings(6, relevant_words)
     
     relevant_df['relevancy_score'] = np.zeros(len(relevant_df))
     relevant_df['weighted_score'] = np.ones(len(relevant_df))
 
-    for word_comp in unique_relevant:
-        for word_against in unique_relevant:
+    for word_comp in relevant_words:
+        for word_against in relevant_words:
             relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([relevant_embeddings_dict[word_comp]], [relevant_embeddings_dict[word_against]]).flatten())
 
     relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
     relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
-    relevant_df.head(num_words_relevant - len(common_words)).to_csv("relevant_test.csv")
+    relevant_df.head(num_words_relevant).to_csv("relevant_test.csv")
     
-    irrelevant_embeddings_dict = multiprocess_embeddings(6, unique_irrelevant)
+    irrelevant_embeddings_dict = multiprocess_embeddings(6, irrelevant_words)
     irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
     irrelevant_df['weighted_score'] = np.ones(len(irrelevant_df))
 
-    for word_comp in unique_irrelevant:
-        for word_against in unique_irrelevant:
+    for word_comp in irrelevant_words:
+        for word_against in irrelevant_words:
             irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([irrelevant_embeddings_dict[word_comp]], [irrelevant_embeddings_dict[word_against]]).flatten())
 
     irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
     irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
-    irrelevant_df.head(num_words_irrelevant - len(common_words)).to_csv("irrelevant_test.csv")
+    irrelevant_df.head(num_words_irrelevant).to_csv("irrelevant_test.csv")
 
     #print(embeddings_dict)
     #print(len(list(embeddings_dict.keys())))
