@@ -40,3 +40,7 @@ right
 com
 day
 use
+cannot
+c
+mr
+%
