@@ -99,6 +99,19 @@ def santize_word(word_):
 
     return word_
 
+def process_use_model(words_batch, embeddings_dict, count):
+
+    for word_ in words_batch:
+
+        print(f"Doing embeddings for word {count[0]}")
+        start = time()
+
+        embeddings_dict[word_] = model([word_])
+
+        count[0]+=1
+        print('Cell took %.2f seconds to run.' % (time() - start))
+
+
 def process_doc2vec_model(words_batch, embeddings_dict, count):
 
     for word_ in words_batch:
@@ -127,6 +140,41 @@ def process_bert_model(words_batch, embeddings_dict, count):
 
         count[0]+=1
         print('Cell took %.2f seconds to run.' % (time() - start))
+
+def create_use_threads(words_batch, embeddings_dict, count):
+
+    
+    print("---------------------------- LOADING MODEL---------------------------- ")
+    start = time()
+    global model
+    filename = "use/universal-sentence-encoder_4"
+    model = hub.load(filename)
+    print('MODEL LOADED in %.2f seconds' % (time() - start))
+    
+    num_threads = 1
+    threads_list = []
+
+    for r in range(num_threads + 1):
+
+        if len(threads_list) == num_threads:
+
+            # Start the processes       
+            for thread in threads_list:
+                
+                thread.start()
+
+            # Ensure all of the processes have finished
+            for thread in threads_list:
+                
+                thread.join()
+                
+            threads_list = []
+
+        else:
+            thread = threading.Thread(target = process_use_model, 
+                                        args = (words_batch, embeddings_dict, count))
+            threads_list.append(thread)
+
 
 def create_doc2vec_threads(words_batch, embeddings_dict, count):
 
@@ -427,7 +475,7 @@ if __name__ == "__main__":
                 if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold):
                     if (word_ not in words_to_add) and (word_ not in list(relevant_df['word'])):
                         words_to_add.append(word_)
-                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": row["weighted_score"]}
+                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
                         relevant_df = relevant_df.append(temp_dict, ignore_index = True)
         #print("----------------------------------------------------------------------")
         
@@ -450,8 +498,8 @@ if __name__ == "__main__":
     
 
     # Generate similar words
-    num_similar_words = 3
-    similarity_threshold = 0.6
+    num_similar_words = 1
+    similarity_threshold = 0.7
     words_to_add = []
 
     for index, row in irrelevant_df.head(num_words_irrelevant).iterrows():
@@ -472,7 +520,7 @@ if __name__ == "__main__":
                 if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold):
                     if (word_ not in words_to_add) and (word_ not in list(irrelevant_df['word'])):
                         words_to_add.append(word_)
-                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": row["weighted_score"]}
+                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
                         irrelevant_df = irrelevant_df.append(temp_dict, ignore_index = True)
 
 
