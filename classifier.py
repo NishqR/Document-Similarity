@@ -305,16 +305,13 @@ if __name__ == "__main__":
                 for similarity_threshold_irrelevant in similarity_threshold_irrelevant_range:
 
     '''
-    num_words_relevant_range = list(range(40, 120, 5))
-    num_words_irrelevant_range = list(range(40, 120, 5))
+    #num_words_relevant_range = list(range(40, 120, 5))
+    #num_words_irrelevant_range = list(range(40, 120, 5))
 
     #for num_words_relevant in num_words_relevant_range:
 
         #for num_words_irrelevant in num_words_irrelevant_range:
 
-
-    run_relevant = True
-    main_start = time() 
 
     #articles_df = pd.read_csv("all_articles.csv")
     articles_df = pd.read_csv("all_articles.csv")
@@ -323,8 +320,20 @@ if __name__ == "__main__":
     train_set=articles_df.sample(frac=0.8,random_state=200)
     test_set=articles_df.drop(train_set.index)
 
-    num_words_relevant = 70
-    num_words_irrelevant = 55
+
+    num_classifiers = 100
+
+    for classifier_ in range(num_classifiers):
+
+
+    bootstrap_set = train_set.sample(frac=0.4, random_state = random.randint(1, 10000), replace = True)
+
+    run_relevant = True
+    main_start = time() 
+
+
+    num_words_relevant = 70 # vary?
+    num_words_irrelevant = 55 # vary?
 
     num_similar_relevant = 3
     similarity_threshold_relevant = 0.6
@@ -341,11 +350,11 @@ if __name__ == "__main__":
 
         if run_relevant == True:
 
-            articles = list(train_set[train_set['relevant'] == 1]['text'])
+            articles = list(bootstrap_set[bootstrap_set['relevant'] == 1]['text'])
 
         else:
 
-            articles = list(train_set[train_set['relevant'] == 0]['text'])      
+            articles = list(bootstrap_set[bootstrap_set['relevant'] == 0]['text'])      
 
         #print(sorted(((v, k) for k, v in count_dict.items()), reverse=True))
         
