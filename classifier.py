@@ -274,7 +274,7 @@ def multiprocess_embeddings(num_cpus, words_list):
         #print(end_index)
         #print(num_list[start_index:end_index])
 
-        process = multiprocessing.Process(target = create_bert_threads, args=(words_list[start_index:end_index], embeddings_dict, count))
+        process = multiprocessing.Process(target = create_use_threads, args=(words_list[start_index:end_index], embeddings_dict, count))
         processes_list.append(process)
         start_index = int((cpu_num+1)*(len(words_list)/num_cpus))
 
@@ -461,7 +461,7 @@ if __name__ == "__main__":
                     # Calculate weighted score based on relevancy and scaled frequency
                     for word_comp in relevant_words:
                         for word_against in relevant_words:
-                            relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([relevant_embeddings_dict[word_comp]], [relevant_embeddings_dict[word_against]]).flatten())
+                            relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(relevant_embeddings_dict[word_comp], relevant_embeddings_dict[word_against]).flatten())
 
                     relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
 
@@ -507,7 +507,7 @@ if __name__ == "__main__":
                     # Calculate weighted score based on relevancy and scaled frequency
                     for word_comp in irrelevant_words:
                         for word_against in irrelevant_words:
-                            irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity([irrelevant_embeddings_dict[word_comp]], [irrelevant_embeddings_dict[word_against]]).flatten())
+                            irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(irrelevant_embeddings_dict[word_comp], irrelevant_embeddings_dict[word_against]).flatten())
 
                     irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
                     
@@ -649,7 +649,7 @@ if __name__ == "__main__":
 
                     # Open CSV file in append mode
                     # Create a file object for this file
-                    with open('results/classification.csv', 'a') as f_object:
+                    with open('results/classification_use.csv', 'a') as f_object:
                      
                         # Pass the file object and a list
                         # of column names to DictWriter()
