@@ -292,6 +292,7 @@ def multiprocess_embeddings(num_cpus, words_list):
 
 if __name__ == "__main__":
 
+    '''
     num_similar_relevant_range = [1,2,3,4,5]
     num_similar_irrelevant_range = [1,2,3,4,5]
     similarity_threshold_relevant_range = [0.6,0.7,0.8]
@@ -303,365 +304,392 @@ if __name__ == "__main__":
             for similarity_threshold_relevant in similarity_threshold_relevant_range:
                 for similarity_threshold_irrelevant in similarity_threshold_irrelevant_range:
 
-
-                    run_relevant = True
-                    main_start = time() 
-
-                    #articles_df = pd.read_csv("all_articles.csv")
-                    articles_df = pd.read_csv("all_articles.csv")
-                    articles_df.fillna("", inplace=True)
-
-                    train_set=articles_df.sample(frac=0.8,random_state=200)
-                    test_set=articles_df.drop(train_set.index)
-
-                    num_runs = 0
-
-                    while(num_runs < 2):
-                        
-                        count_dict = {}
+    '''
+    num_words_relevant_range = list(range(40, 120, 5))
+    num_words_irrelevant_range = list(range(40, 120, 5))
 
 
-                        if run_relevant == True:
+    #num_words_relevant = 70
+    #num_words_irrelevant = 55
+    
 
-                            articles = list(train_set[train_set['relevant'] == 1]['text'])
+    for num_words_relevant in num_words_relevant_range:
 
-                        else:
+        for num_words_irrelevant in num_words_irrelevant_range:
 
-                            articles = list(train_set[train_set['relevant'] == 0]['text'])      
 
-                        #print(sorted(((v, k) for k, v in count_dict.items()), reverse=True))
-                        
-                        for article in articles:
-                        
-                        #start = time()
-                        
-                            sentences = sent_tokenize(article)
-                            
-                            for sentence in sentences:
-                                words_in_sentence = list(sentence.split(" "))
-                                for word_ in words_in_sentence:
+            run_relevant = True
+            main_start = time() 
 
-                                    word_ = santize_word(word_)
+            #articles_df = pd.read_csv("all_articles.csv")
+            articles_df = pd.read_csv("all_articles.csv")
+            articles_df.fillna("", inplace=True)
 
-                                    if (word_ not in stop_words) and (word_ not in string.punctuation):
-                                        if word_ not in count_dict.keys():
-                                            #embeddings_dict[word_] = model.encode(word_)
-                                            #embeddings_dict[word_] = ""
-                                            count_dict[word_] = 1
+            train_set=articles_df.sample(frac=0.8,random_state=200)
+            test_set=articles_df.drop(train_set.index)
 
-                                        else:
-                                            count_dict[word_] += 1
+            num_runs = 0
 
-                            #count[0]+=1
-                            #print('Cell took %.2f seconds to run.' % (time() - start))
+            while(num_runs < 2):
+                
+                count_dict = {}
 
-                        if run_relevant == True:
-                            relevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
-                            relevant_df.reset_index(inplace=True)
-                            relevant_df = relevant_df.rename(columns={'index': 'word'})
-                            relevant_df = relevant_df.sort_values(by=['frequency'], ascending=False)
-                            
-                            # apply normalization techniques
-                            #apply_scale_column = 'frequency'
-                            #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(relevant_df[apply_scale_column]).reshape(-1,1))
-                            
-                            #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column][0:len(relevant_df)]).reshape(-1,1))
-                              
-                            relevant_df.to_csv("relevant_words_count.csv")
-                            
-                        else:
-                            irrelevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
-                            irrelevant_df.reset_index(inplace=True)
-                            irrelevant_df = irrelevant_df.rename(columns={'index': 'word'})
-                            irrelevant_df = irrelevant_df.sort_values(by=['frequency'], ascending=False)
-                            
-                            # apply normalization techniques
-                            #apply_scale_column = 'frequency'
-                            #irrelevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column]).reshape(-1,1))
-                            
-                            irrelevant_df.to_csv("irrelevant_words_count.csv")
-                        
-                        num_runs += 1
-                        run_relevant = False
 
-                    # SCALE THE FREQUENCIES
+                if run_relevant == True:
+
+                    articles = list(train_set[train_set['relevant'] == 1]['text'])
+
+                else:
+
+                    articles = list(train_set[train_set['relevant'] == 0]['text'])      
+
+                #print(sorted(((v, k) for k, v in count_dict.items()), reverse=True))
+                
+                for article in articles:
+                
+                #start = time()
+                
+                    sentences = sent_tokenize(article)
                     
-                    # First calculate the max frequency
-                    max_val = 0
-                    if relevant_df['frequency'].max() > irrelevant_df['frequency'].max():
-                        max_val = relevant_df['frequency'].max()
-                    else:
-                        max_val = irrelevant_df['frequency'].max()
-
-                    # Scale frequencies for relevant df
-                    normalized_freq = []
-                    for freq_ in list(relevant_df['frequency']):
-
-                        scaled_freq = freq_ / max_val
-                        normalized_freq.append(scaled_freq)
-
-                    relevant_df['frequency_scaled'] = normalized_freq
-
-                    # Scale frequencies for irrelevant df
-                    normalized_freq = []
-                    for freq_ in list(irrelevant_df['frequency']):
-
-                        scaled_freq = freq_ / max_val
-                        normalized_freq.append(scaled_freq)
-
-                    irrelevant_df['frequency_scaled'] = normalized_freq
-                    
-                    '''
-                    # Get common words between both lists
-                    relevant_words = list(relevant_df.word)
-                    irrelevant_words = list(irrelevant_df.word)
-                    common_words = intersection(relevant_words, irrelevant_words)
-                    
-                    # Modify frequency scaled value based on difference in scaled frequency
-                    for common_word in common_words:
-                        #print(common_word)
-                        relevant_freq = float(relevant_df[relevant_df['word'] == common_word]['frequency_scaled'])
-                        irrelevant_freq = float(irrelevant_df[irrelevant_df['word'] == common_word]['frequency_scaled'])
-
-                        #print(f"Relevant freq = {relevant_freq}")
-                        #print(f"Irrelevant freq = {irrelevant_freq}")
-
-                        if relevant_freq > irrelevant_freq:
-                            relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = relevant_freq - irrelevant_freq
-                            irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = 0
-
-                        else:
-                            irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = irrelevant_freq - relevant_freq
-                            relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = 0
-                    '''
-                    # Sort dataframes again by scaled frequencies    
-                    relevant_df = relevant_df.sort_values(by=['frequency_scaled'], ascending=False)
-                    irrelevant_df = irrelevant_df.sort_values(by=['frequency_scaled'], ascending=False)
-
-                    print("---------------------------- LOADING MODEL---------------------------- ")
-                    start = time()
-                    global model
-                    filename = 'doc2vec/doc2vec.bin'
-                    model= Doc2Vec.load(filename)
-                    print('MODEL LOADED in %.2f seconds' % (time() - start))
-
-                    
-                    num_words_relevant = 70
-                    num_words_irrelevant = 55
-                    
-                    relevant_words = list(relevant_df.head(num_words_relevant).word)
-                    irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
-
-                    # Generate embeddings for relevant words
-                    relevant_embeddings_dict = multiprocess_embeddings(6, relevant_words)
-                    
-                    relevant_df['relevancy_score'] = np.zeros(len(relevant_df))
-                    relevant_df['weighted_score'] = np.ones(len(relevant_df))
-
-                    # Calculate weighted score based on relevancy and scaled frequency
-                    for word_comp in relevant_words:
-                        for word_against in relevant_words:
-                            relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(relevant_embeddings_dict[word_comp], relevant_embeddings_dict[word_against]).flatten())
-
-                    relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
-
-                    
-
-                    # Generate similar words
-                    #num_similar_relevant = 3
-                    #similarity_threshold_relevant = 0.6
-                    words_to_add = []
-
-                    for index, row in relevant_df.head(num_words_relevant).iterrows():
-                        #print(row['word'])
-                        
-                        try:
-                            similar_words = model.most_similar(positive=[row['word']], topn = num_similar_relevant)
-                        except:
-                            similar_words = []
-                        #print(similar_words)
-                        
-                        for similar_word in similar_words:
-                            word_ = similar_word[0]
+                    for sentence in sentences:
+                        words_in_sentence = list(sentence.split(" "))
+                        for word_ in words_in_sentence:
 
                             word_ = santize_word(word_)
 
                             if (word_ not in stop_words) and (word_ not in string.punctuation):
-                                if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_relevant):
-                                    if (word_ not in words_to_add) and (word_ not in list(relevant_df['word'])):
-                                        words_to_add.append(word_)
-                                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
-                                        relevant_df = relevant_df.append(temp_dict, ignore_index = True)
-                        #print("----------------------------------------------------------------------")
-                        
-                    relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
-                    relevant_df = relevant_df.head(num_words_relevant)
-                    relevant_df.to_csv("relevant_test.csv")
+                                if word_ not in count_dict.keys():
+                                    #embeddings_dict[word_] = model.encode(word_)
+                                    #embeddings_dict[word_] = ""
+                                    count_dict[word_] = 1
+
+                                else:
+                                    count_dict[word_] += 1
+
+                    #count[0]+=1
+                    #print('Cell took %.2f seconds to run.' % (time() - start))
+
+                if run_relevant == True:
+                    relevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
+                    relevant_df.reset_index(inplace=True)
+                    relevant_df = relevant_df.rename(columns={'index': 'word'})
+                    relevant_df = relevant_df.sort_values(by=['frequency'], ascending=False)
                     
-
-                    # Generate embeddings for irrelevant words
-                    irrelevant_embeddings_dict = multiprocess_embeddings(6, irrelevant_words)
-                    irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
-                    irrelevant_df['weighted_score'] = np.ones(len(irrelevant_df))
-
-                    # Calculate weighted score based on relevancy and scaled frequency
-                    for word_comp in irrelevant_words:
-                        for word_against in irrelevant_words:
-                            irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(irrelevant_embeddings_dict[word_comp], irrelevant_embeddings_dict[word_against]).flatten())
-
-                    irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
+                    # apply normalization techniques
+                    #apply_scale_column = 'frequency'
+                    #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(relevant_df[apply_scale_column]).reshape(-1,1))
                     
-
-                    # Generate similar words
-                    #num_similar_irrelevant = 1
-                    #similarity_threshold_irrelevant = 0.7
-                    words_to_add = []
-
-                    for index, row in irrelevant_df.head(num_words_irrelevant).iterrows():
-                        #print(row['word'])
-                        
-                        try:
-                            similar_words = model.most_similar(positive=[row['word']], topn = num_similar_irrelevant)
-                        except:
-                            similar_words = []
-                        #print(similar_words)
-                        
-                        for similar_word in similar_words:
-                            word_ = similar_word[0]
-
-                            word_ = santize_word(word_)
-
-                            if (word_ not in stop_words) and (word_ not in string.punctuation):
-                                if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_irrelevant):
-                                    if (word_ not in words_to_add) and (word_ not in list(irrelevant_df['word'])):
-                                        words_to_add.append(word_)
-                                        temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
-                                        irrelevant_df = irrelevant_df.append(temp_dict, ignore_index = True)
-
-
-                    irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
-                    irrelevant_df = irrelevant_df.head(num_words_irrelevant) 
-                    irrelevant_df.to_csv("irrelevant_test.csv")
-
-                    #print(embeddings_dict)
-                    #print(len(list(embeddings_dict.keys())))
-
-
-
+                    #relevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column][0:len(relevant_df)]).reshape(-1,1))
+                      
+                    relevant_df.to_csv("relevant_words_count.csv")
                     
+                else:
+                    irrelevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
+                    irrelevant_df.reset_index(inplace=True)
+                    irrelevant_df = irrelevant_df.rename(columns={'index': 'word'})
+                    irrelevant_df = irrelevant_df.sort_values(by=['frequency'], ascending=False)
+                    
+                    # apply normalization techniques
+                    #apply_scale_column = 'frequency'
+                    #irrelevant_df['frequency_scaled'] = MinMaxScaler().fit_transform(np.array(irrelevant_df[apply_scale_column]).reshape(-1,1))
+                    
+                    irrelevant_df.to_csv("irrelevant_words_count.csv")
+                
+                num_runs += 1
+                run_relevant = False
 
-                    #------------------------------------------------------------------------------------ CLASSIFICATION ------------------------------------------------------------------------------------#
+            # SCALE THE FREQUENCIES
+            
+            # First calculate the max frequency
+            max_val = 0
+            if relevant_df['frequency'].max() > irrelevant_df['frequency'].max():
+                max_val = relevant_df['frequency'].max()
+            else:
+                max_val = irrelevant_df['frequency'].max()
 
-                    test_set['predicted'] = np.zeros(len(test_set))
-                    all_articles_relevancy = {}
-                    for index, row in test_set.iterrows():
+            # Scale frequencies for relevant df
+            normalized_freq = []
+            for freq_ in list(relevant_df['frequency']):
+
+                scaled_freq = freq_ / max_val
+                normalized_freq.append(scaled_freq)
+
+            relevant_df['frequency_scaled'] = normalized_freq
+
+            # Scale frequencies for irrelevant df
+            normalized_freq = []
+            for freq_ in list(irrelevant_df['frequency']):
+
+                scaled_freq = freq_ / max_val
+                normalized_freq.append(scaled_freq)
+
+            irrelevant_df['frequency_scaled'] = normalized_freq
+            
+            '''
+            # Get common words between both lists
+            relevant_words = list(relevant_df.word)
+            irrelevant_words = list(irrelevant_df.word)
+            common_words = intersection(relevant_words, irrelevant_words)
+            
+            # Modify frequency scaled value based on difference in scaled frequency
+            for common_word in common_words:
+                #print(common_word)
+                relevant_freq = float(relevant_df[relevant_df['word'] == common_word]['frequency_scaled'])
+                irrelevant_freq = float(irrelevant_df[irrelevant_df['word'] == common_word]['frequency_scaled'])
+
+                #print(f"Relevant freq = {relevant_freq}")
+                #print(f"Irrelevant freq = {irrelevant_freq}")
+
+                if relevant_freq > irrelevant_freq:
+                    relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = relevant_freq - irrelevant_freq
+                    irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = 0
+
+                else:
+                    irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = irrelevant_freq - relevant_freq
+                    relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = 0
+            '''
+            # Sort dataframes again by scaled frequencies    
+            relevant_df = relevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+            irrelevant_df = irrelevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+
+            print("---------------------------- LOADING MODEL---------------------------- ")
+            start = time()
+            global model
+            filename = 'doc2vec/doc2vec.bin'
+            model= Doc2Vec.load(filename)
+            print('MODEL LOADED in %.2f seconds' % (time() - start))
+
+            
+            relevant_words = list(relevant_df.head(num_words_relevant).word)
+            irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
+
+            # Generate embeddings for relevant words
+            relevant_embeddings_dict = multiprocess_embeddings(6, relevant_words)
+            
+            relevant_df['relevancy_score'] = np.zeros(len(relevant_df))
+            relevant_df['weighted_score'] = np.ones(len(relevant_df))
+
+            # Calculate weighted score based on relevancy and scaled frequency
+            for word_comp in relevant_words:
+                for word_against in relevant_words:
+                    relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(relevant_embeddings_dict[word_comp], relevant_embeddings_dict[word_against]).flatten())
+
+            relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
+
+            
+
+            # Generate similar words
+            num_similar_relevant = 3
+            similarity_threshold_relevant = 0.6
+            words_to_add = []
+
+            for index, row in relevant_df.head(num_words_relevant).iterrows():
+                #print(row['word'])
+                
+                try:
+                    similar_words = model.most_similar(positive=[row['word']], topn = num_similar_relevant)
+                except:
+                    similar_words = []
+                #print(similar_words)
+                
+                for similar_word in similar_words:
+                    word_ = similar_word[0]
+
+                    word_ = santize_word(word_)
+
+                    if (word_ not in stop_words) and (word_ not in string.punctuation):
+                        if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_relevant):
+                            if (word_ not in words_to_add) and (word_ not in list(relevant_df['word'])):
+                                words_to_add.append(word_)
+                                temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
+                                relevant_df = relevant_df.append(temp_dict, ignore_index = True)
+                #print("----------------------------------------------------------------------")
+                
+            relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
+            relevant_df = relevant_df.head(num_words_relevant)
+            relevant_df.to_csv("relevant_test.csv")
+            
+
+            # Generate embeddings for irrelevant words
+            irrelevant_embeddings_dict = multiprocess_embeddings(6, irrelevant_words)
+            irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
+            irrelevant_df['weighted_score'] = np.ones(len(irrelevant_df))
+
+            # Calculate weighted score based on relevancy and scaled frequency
+            for word_comp in irrelevant_words:
+                for word_against in irrelevant_words:
+                    irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(irrelevant_embeddings_dict[word_comp], irrelevant_embeddings_dict[word_against]).flatten())
+
+            irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
+            
+
+            # Generate similar words
+            num_similar_irrelevant = 1
+            similarity_threshold_irrelevant = 0.8
+            words_to_add = []
+
+            for index, row in irrelevant_df.head(num_words_irrelevant).iterrows():
+                #print(row['word'])
+                
+                try:
+                    similar_words = model.most_similar(positive=[row['word']], topn = num_similar_irrelevant)
+                except:
+                    similar_words = []
+                #print(similar_words)
+                
+                for similar_word in similar_words:
+                    word_ = similar_word[0]
+
+                    word_ = santize_word(word_)
+
+                    if (word_ not in stop_words) and (word_ not in string.punctuation):
+                        if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_irrelevant):
+                            if (word_ not in words_to_add) and (word_ not in list(irrelevant_df['word'])):
+                                words_to_add.append(word_)
+                                temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
+                                irrelevant_df = irrelevant_df.append(temp_dict, ignore_index = True)
+
+
+            irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
+            irrelevant_df = irrelevant_df.head(num_words_irrelevant) 
+            irrelevant_df.to_csv("irrelevant_test.csv")
+
+            #print(embeddings_dict)
+            #print(len(list(embeddings_dict.keys())))
+
+
+            #------------------------------------------------------------------------------------ CLASSIFICATION ------------------------------------------------------------------------------------#
+
+            test_set['predicted'] = np.zeros(len(test_set))
+            all_articles_relevancy = {}
+            for index, row in test_set.iterrows():
+                
+                #if index == 0:
+                all_articles_relevancy[row['article_title']] = 0
+                sentences = sent_tokenize(row['text'])
+
+                for sentence in sentences:
+                    words_in_sentence = list(sentence.split(" "))
+                    for word_ in words_in_sentence:
+
+                        word_ = santize_word(word_)
+
+                        if (word_ not in stop_words) and (word_ not in string.punctuation):
+
+                            if word_ in list(relevant_df['word']):
+                                #print("RELEVANT WORD")
+                                #print(word_)
+                                #print(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                                all_articles_relevancy[row['article_title']] += float(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                                #print(all_articles_relevancy['article_title'])
+
+                            if word_ in list(irrelevant_df['word']):
+                                #print("IRRELEVANT WORD")
+                                #print(word_)
+                                #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                                all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                                #print(all_articles_relevancy['article_title'])
+
+            for key in all_articles_relevancy.keys():
+                if all_articles_relevancy[key] >= 0:
+                    test_set.loc[test_set['article_title'] == key, ['predicted']] = 1
+
+            #pd.set_option('display.max_rows', 1000)
+            #test_set[['relevant', 'predicted']]
+
+            num_ers = 0
+            true_positive = 0
+            true_negative = 0
+            false_positive = 0
+            false_negative = 0
+
+            for index, row in test_set.iterrows():
+                
+                if row['relevant'] == 1:
+                    
+                    if row['predicted'] == 1:
+                        true_positive += 1
+                    
+                    if row['predicted'] == 0:
+                        false_negative += 1
+                
+                if row['relevant'] == 0:
+                    
+                    if row['predicted'] == 0:
+                        true_negative += 1
                         
-                        #if index == 0:
-                        all_articles_relevancy[row['article_title']] = 0
-                        sentences = sent_tokenize(row['text'])
+                    if row['predicted'] == 1:
+                        false_positive += 1
+                    
+                
+                if row['relevant'] != row['predicted']:
+                    num_ers += 1
 
-                        for sentence in sentences:
-                            words_in_sentence = list(sentence.split(" "))
-                            for word_ in words_in_sentence:
+            eval_dict = {}
 
-                                word_ = santize_word(word_)
+            print(f"True positive = {true_positive}")
+            print(f"True Negative = {true_negative}")
+            print(f"False_negative = {false_negative}")
+            print(f"False_positive = {false_positive}")
+            print(f"Total number of errors = {num_ers}/{len(test_set)}")
+            eval_dict['num_similar_relevant'] = num_similar_relevant
+            eval_dict['num_similar_irrelevant'] = num_similar_irrelevant
+            eval_dict['similarity_threshold_relevant'] = similarity_threshold_relevant
+            eval_dict['similarity_threshold_irrelevant'] = similarity_threshold_irrelevant
+            eval_dict['num_words_relevant'] = num_words_relevant
+            eval_dict['num_words_irrelevant'] = num_words_irrelevant            
+            eval_dict['true_positive'] = true_positive
+            eval_dict['true_negative'] = true_negative
+            eval_dict['false_positive'] = false_positive
+            eval_dict['false_negative'] = false_negative
+            
+            try: 
+                eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
+            except: 
+                eval_dict['accuracy'] = 0
 
-                                if (word_ not in stop_words) and (word_ not in string.punctuation):
+            try:
+                eval_dict['precision'] = true_positive / (true_positive + false_positive)
+            except:
+                eval_dict['precision'] = 0
+            
+            try:
+                eval_dict['recall'] = true_positive / (true_positive + false_negative)
+            except: 
+                eval_dict['recall'] = 0
 
-                                    if word_ in list(relevant_df['word']):
-                                        #print("RELEVANT WORD")
-                                        #print(word_)
-                                        #print(relevant_df[relevant_df['word'] == word_]['weighted_score'])
-                                        all_articles_relevancy[row['article_title']] += float(relevant_df[relevant_df['word'] == word_]['weighted_score'])
-                                        #print(all_articles_relevancy['article_title'])
 
-                                    if word_ in list(irrelevant_df['word']):
-                                        #print("IRRELEVANT WORD")
-                                        #print(word_)
-                                        #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
-                                        all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
-                                        #print(all_articles_relevancy['article_title'])
+            try:
+                eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
+            except:
+                eval_dict['f1_score'] = 0
 
-                    for key in all_articles_relevancy.keys():
-                        if all_articles_relevancy[key] >= 0:
-                            test_set.loc[test_set['article_title'] == key, ['predicted']] = 1
+            #print(f"correctly_classified documents  = {correctly_classified}")
+            print(f"Accuracy = {eval_dict['accuracy']}")
+            print(f"Precision = {eval_dict['precision']}")
+            print(f"Recall = {eval_dict['recall']}")
+            print(f"F1-Score = {eval_dict['f1_score']}")
 
-                    #pd.set_option('display.max_rows', 1000)
-                    #test_set[['relevant', 'predicted']]
+            eval_df = pd.DataFrame (pd.Series(eval_dict)).T
 
-                    num_ers = 0
-                    true_positive = 0
-                    true_negative = 0
-                    false_positive = 0
-                    false_negative = 0
+            # list of column names
+            field_names = list(eval_dict.keys())
 
-                    for index, row in test_set.iterrows():
-                        
-                        if row['relevant'] == 1:
-                            
-                            if row['predicted'] == 1:
-                                true_positive += 1
-                            
-                            if row['predicted'] == 0:
-                                false_negative += 1
-                        
-                        if row['relevant'] == 0:
-                            
-                            if row['predicted'] == 0:
-                                true_negative += 1
-                                
-                            if row['predicted'] == 1:
-                                false_positive += 1
-                            
-                        
-                        if row['relevant'] != row['predicted']:
-                            num_ers += 1
+            # Open CSV file in append mode
+            # Create a file object for this file
+            with open('results/classification_use_num_words.csv', 'a') as f_object:
+             
+                # Pass the file object and a list
+                # of column names to DictWriter()
+                # You will get a object of DictWriter
+                dictwriter_object = DictWriter(f_object, fieldnames=field_names)
+             
+                # Pass the dictionary as an argument to the Writerow()
+                dictwriter_object.writerow(eval_dict)
+             
+                # Close the file object
+                f_object.close()
 
-                    eval_dict = {}
-
-                    print(f"True positive = {true_positive}")
-                    print(f"True Negative = {true_negative}")
-                    print(f"False_negative = {false_negative}")
-                    print(f"False_positive = {false_positive}")
-                    print(f"Total number of errors = {num_ers}/{len(test_set)}")
-                    eval_dict['num_similar_relevant'] = num_similar_relevant
-                    eval_dict['num_similar_irrelevant'] = num_similar_irrelevant
-                    eval_dict['similarity_threshold_relevant'] = similarity_threshold_relevant
-                    eval_dict['similarity_threshold_irrelevant'] = similarity_threshold_irrelevant
-                    eval_dict['true_positive'] = true_positive
-                    eval_dict['true_negative'] = true_negative
-                    eval_dict['false_positive'] = false_positive
-                    eval_dict['false_negative'] = false_negative
-                    eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
-                    eval_dict['precision'] = true_positive / (true_positive + false_positive)
-                    eval_dict['recall'] = true_positive / (true_positive + false_negative)
-                    eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
-                    #print(f"correctly_classified documents  = {correctly_classified}")
-                    print(f"Accuracy = {eval_dict['accuracy']}")
-                    print(f"Precision = {eval_dict['precision']}")
-                    print(f"Recall = {eval_dict['recall']}")
-                    print(f"F1-Score = {eval_dict['f1_score']}")
-
-                    eval_df = pd.DataFrame (pd.Series(eval_dict)).T
-
-                    # list of column names
-                    field_names = list(eval_dict.keys())
-
-                    # Open CSV file in append mode
-                    # Create a file object for this file
-                    with open('results/classification_use.csv', 'a') as f_object:
-                     
-                        # Pass the file object and a list
-                        # of column names to DictWriter()
-                        # You will get a object of DictWriter
-                        dictwriter_object = DictWriter(f_object, fieldnames=field_names)
-                     
-                        # Pass the dictionary as an argument to the Writerow()
-                        dictwriter_object.writerow(eval_dict)
-                     
-                        # Close the file object
-                        f_object.close()
-
-                    #eval_df.to_csv('results/classification.csv')
+            #eval_df.to_csv('results/classification.csv')
 
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
