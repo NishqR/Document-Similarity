@@ -292,6 +292,8 @@ def multiprocess_embeddings(num_cpus, words_list):
 
 if __name__ == "__main__":
 
+    main_start = time()
+
     '''
     num_similar_relevant_range = [1,2,3,4,5]
     num_similar_irrelevant_range = [1,2,3,4,5]
@@ -320,18 +322,28 @@ if __name__ == "__main__":
     train_set=articles_df.sample(frac=0.8,random_state=200)
     test_set=articles_df.drop(train_set.index)
 
-    num_classifiers = 2
+    num_classifiers = 100
+
+    frac_ = 0.67
+
+    num_words_rel_irrel = [(60,50), (55,45), (70,55), (65,50), (65,55),(55,50)]
+
 
     for classifier_ in range(num_classifiers):
 
-        bootstrap_set = train_set.sample(frac=0.67, random_state = random.randint(1, 10000), replace = True)
+        bootstrap_set = train_set.sample(frac=frac_, random_state = random.randint(1, 10000), replace = True)
 
-        run_relevant = True
-        main_start = time() 
+        run_relevant = True 
 
 
-        num_words_relevant = 60 # vary?
-        num_words_irrelevant = 50 # vary?
+        #num_words_relevant = 60 # vary?
+        #num_words_irrelevant = 50 # vary?
+
+        config_picked = num_words_rel_irrel[random.randint(0, len(num_words_rel_irrel) - 1)]
+
+        num_words_relevant = config_picked[0]
+        num_words_irrelevant = config_picked[1]
+
 
         num_similar_relevant = 3
         similarity_threshold_relevant = 0.6
@@ -601,104 +613,127 @@ if __name__ == "__main__":
             if all_articles_relevancy[key] >= 0:
                 test_set.loc[test_set['article_title'] == key, ['predicted' + str(classifier_)]] = 1
 
-        test_set.to_csv("results/predicted_vals.csv")
-        #pd.set_option('display.max_rows', 1000)
-        #test_set[['relevant', 'predicted']]
 
-        '''
-        num_ers = 0
-        true_positive = 0
-        true_negative = 0
-        false_positive = 0
-        false_negative = 0
+    test_set.to_csv("results/predicted_vals.csv")
 
-        for index, row in test_set.iterrows():
-            
-            if row['relevant'] == 1:
-                
-                if row['predicted'] == 1:
-                    true_positive += 1
-                
-                if row['predicted'] == 0:
-                    false_negative += 1
-            
-            if row['relevant'] == 0:
-                
-                if row['predicted'] == 0:
-                    true_negative += 1
-                    
-                if row['predicted'] == 1:
-                    false_positive += 1
-                
-            
-            if row['relevant'] != row['predicted']:
-                num_ers += 1
-
-        eval_dict = {}
-
-        print(f"True positive = {true_positive}")
-        print(f"True Negative = {true_negative}")
-        print(f"False_negative = {false_negative}")
-        print(f"False_positive = {false_positive}")
-        print(f"Total number of errors = {num_ers}/{len(test_set)}")
-        eval_dict['num_similar_relevant'] = num_similar_relevant
-        eval_dict['num_similar_irrelevant'] = num_similar_irrelevant
-        eval_dict['similarity_threshold_relevant'] = similarity_threshold_relevant
-        eval_dict['similarity_threshold_irrelevant'] = similarity_threshold_irrelevant
-        eval_dict['num_words_relevant'] = num_words_relevant
-        eval_dict['num_words_irrelevant'] = num_words_irrelevant            
-        eval_dict['true_positive'] = true_positive
-        eval_dict['true_negative'] = true_negative
-        eval_dict['false_positive'] = false_positive
-        eval_dict['false_negative'] = false_negative
+    # Take mean across all predictions and save to predicted column
+    all_predictions = []
+    for index, row in test_set.iterrows():
         
-        try: 
-            eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
-        except: 
-            eval_dict['accuracy'] = 0
-
-        try:
-            eval_dict['precision'] = true_positive / (true_positive + false_positive)
-        except:
-            eval_dict['precision'] = 0
+        total_val = 0
+        for classifier_ in range(num_classifiers):
+            #print(classifier_)
+            #print(row['predicted'+str(classifier_)])
+            total_val += float(row['predicted'+str(classifier_)])
         
-        try:
-            eval_dict['recall'] = true_positive / (true_positive + false_negative)
-        except: 
-            eval_dict['recall'] = 0
+        avg_prediction = total_val/num_classifiers
+        print(avg_prediction)
+        
+        if avg_prediction > 0.5:
+            all_predictions.append(1)
+        else:
+            all_predictions.append(0)
+            
+    test_set['predicted'] = all_predictions
+
+    #pd.set_option('display.max_rows', 1000)
+    #test_set[['relevant', 'predicted']]
+
+    
+    num_ers = 0
+    true_positive = 0
+    true_negative = 0
+    false_positive = 0
+    false_negative = 0
+
+    for index, row in test_set.iterrows():
+        
+        if row['relevant'] == 1:
+            
+            if row['predicted'] == 1:
+                true_positive += 1
+            
+            if row['predicted'] == 0:
+                false_negative += 1
+        
+        if row['relevant'] == 0:
+            
+            if row['predicted'] == 0:
+                true_negative += 1
+                
+            if row['predicted'] == 1:
+                false_positive += 1
+            
+        
+        if row['relevant'] != row['predicted']:
+            num_ers += 1
+
+    eval_dict = {}
+
+    print(f"True positive = {true_positive}")
+    print(f"True Negative = {true_negative}")
+    print(f"False_negative = {false_negative}")
+    print(f"False_positive = {false_positive}")
+    print(f"Total number of errors = {num_ers}/{len(test_set)}")
+    eval_dict['frac'] = frac_
+    eval_dict['num_similar_relevant'] = num_similar_relevant
+    eval_dict['num_similar_irrelevant'] = num_similar_irrelevant
+    eval_dict['similarity_threshold_relevant'] = similarity_threshold_relevant
+    eval_dict['similarity_threshold_irrelevant'] = similarity_threshold_irrelevant
+    eval_dict['num_words_relevant'] = num_words_relevant
+    eval_dict['num_words_irrelevant'] = num_words_irrelevant            
+    eval_dict['true_positive'] = true_positive
+    eval_dict['true_negative'] = true_negative
+    eval_dict['false_positive'] = false_positive
+    eval_dict['false_negative'] = false_negative
+    
+    try: 
+        eval_dict['accuracy'] = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
+    except: 
+        eval_dict['accuracy'] = 0
+
+    try:
+        eval_dict['precision'] = true_positive / (true_positive + false_positive)
+    except:
+        eval_dict['precision'] = 0
+    
+    try:
+        eval_dict['recall'] = true_positive / (true_positive + false_negative)
+    except: 
+        eval_dict['recall'] = 0
 
 
-        try:
-            eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
-        except:
-            eval_dict['f1_score'] = 0
+    try:
+        eval_dict['f1_score'] = (2 * eval_dict['precision'] * eval_dict['recall']) / (eval_dict['precision'] + eval_dict['recall']) 
+    except:
+        eval_dict['f1_score'] = 0
 
-        #print(f"correctly_classified documents  = {correctly_classified}")
-        print(f"Accuracy = {eval_dict['accuracy']}")
-        print(f"Precision = {eval_dict['precision']}")
-        print(f"Recall = {eval_dict['recall']}")
-        print(f"F1-Score = {eval_dict['f1_score']}")
+    #print(f"correctly_classified documents  = {correctly_classified}")
+    print(f"Accuracy = {eval_dict['accuracy']}")
+    print(f"Precision = {eval_dict['precision']}")
+    print(f"Recall = {eval_dict['recall']}")
+    print(f"F1-Score = {eval_dict['f1_score']}")
 
-        eval_df = pd.DataFrame (pd.Series(eval_dict)).T
+    eval_df = pd.DataFrame (pd.Series(eval_dict)).T
 
-        # list of column names
-        field_names = list(eval_dict.keys())
+    # list of column names
+    field_names = list(eval_dict.keys())
+    
+    # Open CSV file in append mode
+    # Create a file object for this file
+    with open('results/ensemble_classification.csv', 'a') as f_object:
+     
+        # Pass the file object and a list
+        # of column names to DictWriter()
+        # You will get a object of DictWriter
+        dictwriter_object = DictWriter(f_object, fieldnames=field_names)
+     
+        # Pass the dictionary as an argument to the Writerow()
+        dictwriter_object.writerow(eval_dict)
+     
+        # Close the file object
+        f_object.close()
 
-        # Open CSV file in append mode
-        # Create a file object for this file
-        with open('results/classification_use_num_words.csv', 'a') as f_object:
-         
-            # Pass the file object and a list
-            # of column names to DictWriter()
-            # You will get a object of DictWriter
-            dictwriter_object = DictWriter(f_object, fieldnames=field_names)
-         
-            # Pass the dictionary as an argument to the Writerow()
-            dictwriter_object.writerow(eval_dict)
-         
-            # Close the file object
-            f_object.close()
-
-        #eval_df.to_csv('results/classification.csv')
-        '''
+    #eval_df.to_csv('results/classification.csv')
+    
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))

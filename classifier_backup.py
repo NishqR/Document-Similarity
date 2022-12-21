@@ -323,8 +323,8 @@ if __name__ == "__main__":
     articles_df = pd.read_csv("all_articles.csv")
     articles_df.fillna("", inplace=True)
 
-    base_set=articles_df.sample(frac=0.8,random_state=200)
-    train_set=base_set.sample(frac=0.67,random_state=200)
+    train_set=articles_df.sample(frac=0.8,random_state=200)
+    #train_set=base_set.sample(frac=0.67,random_state=200)
     test_set=articles_df.drop(train_set.index)
 
     num_words_relevant = 60
@@ -637,6 +637,7 @@ if __name__ == "__main__":
     print(f"False_negative = {false_negative}")
     print(f"False_positive = {false_positive}")
     print(f"Total number of errors = {num_ers}/{len(test_set)}")
+    eval_dict['frac'] = frac_
     eval_dict['num_similar_relevant'] = num_similar_relevant
     eval_dict['num_similar_irrelevant'] = num_similar_irrelevant
     eval_dict['similarity_threshold_relevant'] = similarity_threshold_relevant

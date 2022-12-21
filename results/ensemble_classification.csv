@@ -1,0 +1,8 @@
+frac, num_similar_relevant,num_similar_irrelevant,similarity_threshold_relevant,similarity_threshold_irrelevant, num_words_relevant, num_words_irrelevant, true_positive,true_negative,false_positive,false_negative,accuracy,precision,recall,f1_score
+
+
+0.67,3,1,0.6,0.8,60,50,36,72,24,12,0.75,0.6,0.75,0.6666666666666665
+
+0.4,3,1,0.6,0.8,60,50,36,65,31,12,0.7013888888888888,0.5373134328358209,0.75,0.6260869565217392
+0.8,3,1,0.6,0.8,60,50,33,74,22,15,0.7430555555555556,0.6,0.6875,0.6407766990291262
+0.67,3,1,0.6,0.8,60,50,37,68,28,11,0.7291666666666666,0.5692307692307692,0.7708333333333334,0.6548672566371682
