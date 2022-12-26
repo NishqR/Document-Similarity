@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     main_start = time()
 
-    test_set = pd.read_csv("")
+    test_set = pd.read_csv("labelled_2.csv")
     test_set.fillna("", inplace=True)
 
     relevant_df = pd.read_csv("relevant_test.csv")
