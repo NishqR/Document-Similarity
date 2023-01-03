@@ -528,7 +528,7 @@ if __name__ == "__main__":
             
         relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
         relevant_df = relevant_df.head(num_words_relevant)
-        relevant_df.to_csv("relevant_test.csv")
+        relevant_df.to_csv("relevant_words.csv")
         
 
         # Generate embeddings for irrelevant words
@@ -571,7 +571,7 @@ if __name__ == "__main__":
 
         irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
         irrelevant_df = irrelevant_df.head(num_words_irrelevant) 
-        irrelevant_df.to_csv("irrelevant_test.csv")
+        irrelevant_df.to_csv("irrelevant_words.csv")
 
         #print(embeddings_dict)
         #print(len(list(embeddings_dict.keys())))
