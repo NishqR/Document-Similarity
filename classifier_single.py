@@ -296,13 +296,15 @@ if __name__ == "__main__":
     main_start = time()
 
     # Load all articles into dataframe
+    #articles_df_balanced = pd.read_csv("all_articles_balanced.csv")
+    #articles_df_balanced.fillna("", inplace=True)
     articles_df = pd.read_csv("all_articles.csv")
     articles_df.fillna("", inplace=True)
 
     # Split articles into train and test sets
     train_set=articles_df.sample(frac=1,random_state=200)
-    test_set=articles_df.sample(frac=1,random_state=195)
-    #test_set=articles_df.drop(train_set.index)
+    #test_set=articles_df.sample(frac=1,random_state=195)
+    test_set=articles_df.drop(train_set.index)
 
     # Input parameters
     num_classifiers = 1
@@ -310,7 +312,8 @@ if __name__ == "__main__":
 
     run_relevant = True 
 
-    num_words_relevant = 70 
+    num_words_relevant = 70
+    #num_words_relevant = 70 
     num_words_irrelevant = 60 
 
     num_similar_relevant = 4
