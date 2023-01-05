@@ -303,8 +303,8 @@ if __name__ == "__main__":
 
     # Split articles into train and test sets
     train_set=articles_df.sample(frac=1,random_state=200)
-    #test_set=articles_df.sample(frac=1,random_state=195)
-    test_set=articles_df.drop(train_set.index)
+    test_set=articles_df.sample(frac=1,random_state=195)
+    #test_set=articles_df.drop(train_set.index)
 
     # Input parameters
     num_classifiers = 1
