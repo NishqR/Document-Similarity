@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import re
 from csv import DictWriter
 
 
@@ -151,8 +152,8 @@ def create_use_threads(words_batch, embeddings_dict, count):
     print("---------------------------- LOADING MODEL---------------------------- ")
     start = time()
     global model
-    filename = "use/universal-sentence-encoder_4"
-    model = hub.load(filename)
+    use_filename = "use/universal-sentence-encoder_4"
+    model = hub.load(use_filename)
     print('MODEL LOADED in %.2f seconds' % (time() - start))
     
     num_threads = 1
@@ -186,8 +187,8 @@ def create_doc2vec_threads(words_batch, embeddings_dict, count):
     print("---------------------------- LOADING MODEL---------------------------- ")
     start = time()
     global model
-    filename = 'doc2vec/doc2vec.bin'
-    model= Doc2Vec.load(filename)
+    doc2vec_filename = 'doc2vec/doc2vec.bin'
+    model= Doc2Vec.load(doc2vec_filename)
     print('MODEL LOADED in %.2f seconds' % (time() - start))
     
     num_threads = 1
@@ -260,7 +261,7 @@ def multiprocess_embeddings(num_cpus, words_list):
 
     processes_list = []
     
-    start_index = 0
+    start_index_embedding = 0
 
     embeddings_manager = multiprocessing.Manager()
     
@@ -271,13 +272,13 @@ def multiprocess_embeddings(num_cpus, words_list):
     count.append(0)
     
     for cpu_num in range(num_cpus):
-        end_index = int((cpu_num+1)*(len(words_list)/num_cpus))
+        end_index_embedding = int((cpu_num+1)*(len(words_list)/num_cpus))
         #print(end_index)
         #print(num_list[start_index:end_index])
 
-        process = multiprocessing.Process(target = create_use_threads, args=(words_list[start_index:end_index], embeddings_dict, count))
+        process = multiprocessing.Process(target = create_use_threads, args=(words_list[start_index_embedding:end_index_embedding], embeddings_dict, count))
         processes_list.append(process)
-        start_index = int((cpu_num+1)*(len(words_list)/num_cpus))
+        start_index_embedding = int((cpu_num+1)*(len(words_list)/num_cpus))
 
     print(f"Processes list = {processes_list}")
     
@@ -294,59 +295,328 @@ def multiprocess_embeddings(num_cpus, words_list):
 
 if __name__ == "__main__":
 
+    main_start = time()
+
     folder_name = "fwb_data/"
     filename = "part-000000000000"
     filetype = ".json"
     articles_df = pd.read_json(folder_name+filename+filetype, lines=True)
+    articles_df.fillna("", inplace=True)
     articles_df = articles_df.reset_index().drop(columns=['subject_codes','copyright','index','region_of_origin','source_name','language_code', 'region_codes', 'byline', 'publisher_name','company_codes_association', 'art', 'modification_datetime', 'company_codes_occur_ticker_exchange', 'company_codes_occur', 'company_codes_about', 'company_codes_lineage','company_codes_ticker_exchange','company_codes_relevance_ticker_exchange','publication_date',    'market_index_codes','credit','section','company_codes_association_ticker_exchange','currency_codes','an','word_count','company_codes','industry_codes','action','document_type','dateline', 'publication_datetime','company_codes_relevance','source_code','person_codes','company_codes_lineage_ticker_exchange','ingestion_datetime','modification_date','company_codes_about_ticker_exchange'])
-    articles_df['text'] = articles_df['title'] + '\n' + articles_df['snippet'] + '\n' + articles_df['body']
+    articles_df['text'] = articles_df['title'] + ' ' + articles_df['snippet'] + ' ' + articles_df['body']
     articles_df = articles_df.rename(columns={'title': 'article_title', 'relevance': 'relevant'})
     articles_df = articles_df.reset_index().drop(columns=['snippet', 'body', 'index'])
-    articles_df.fillna("", inplace=True)
     
-    test_set=articles_df.sample(frac=0.1,random_state=195)
+    articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\n", " ", str(x)))
+    articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\t", " ", str(x)))
+    articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\n", " ", str(x)))
+    articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\t", " ", str(x)))
+    
+    #articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r",", " ", str(x)))
+
+    #test_set=articles_df.sample(frac=0.1,random_state=195)
     relevant_df = pd.read_csv('relevant_words.csv')
     irrelevant_df = pd.read_csv('irrelevant_words.csv')
 
     # Input parameters
     num_classifiers = 1
     classifier_ = 0
-    
-    # Do classification based on number of relevant and irrelevant words
-    test_set['predicted' + str(classifier_)] = np.zeros(len(test_set))
-    all_articles_relevancy = {}
-    for index, row in test_set.iterrows():
-        
-        #if index == 0:
-        all_articles_relevancy[row['article_title']] = 0
-        print(row['text'])
-        sentences = sent_tokenize(row['text'])
 
-        for sentence in sentences:
-            words_in_sentence = list(sentence.split(" "))
-            for word_ in words_in_sentence:
+    start_index = 0
+    print("---------------------------------------------------THIS BEING RUN AGAIN WATCH OUT ")
+    labelled_articles_df = pd.read_csv("all_articles.csv")
+    labelled_articles_df.fillna("", inplace=True)
+    chunk_percentages = [1,2,4,4,4,4,4,4,4,4,20,20,25]
+    #chunk_percentages = [1,2]
+
+    for chunk_percentage in chunk_percentages:
+        
+
+        #------------------------------------------------------------------------------------ CLASSIFICATION ------------------------------------------------------------------------------------#
+        print(f"Classifying batch {chunk_percentage}")
+        end_index = start_index + int((chunk_percentage/100) * len(articles_df))
+        
+        df_chunk = articles_df[start_index:end_index].copy(deep=True)
+        
+        df_chunk['relevant'] = np.zeros(len(df_chunk))
+        
+        #for index, row in df[start_index:end_index].iterrows():
+            #print(index)
+
+        # Do classification based on number of relevant and irrelevant words
+        all_articles_relevancy = {}
+        for index, row in df_chunk.iterrows():
+            
+            #if index == 0:
+            all_articles_relevancy[row['article_title']] = 0
+            #print(row['text'])
+            sentences = sent_tokenize(row['text'])
+
+            for sentence in sentences:
+                words_in_sentence = list(sentence.split(" "))
+                for word_ in words_in_sentence:
+
+                    word_ = santize_word(word_)
+
+                    if (word_ not in stop_words) and (word_ not in string.punctuation):
+
+                        if word_ in list(relevant_df['word']):
+                            #print("RELEVANT WORD")
+                            #print(word_)
+                            #print(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                            all_articles_relevancy[row['article_title']] += float(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                            #print(all_articles_relevancy['article_title'])
+
+                        if word_ in list(irrelevant_df['word']):
+                            #print("IRRELEVANT WORD")
+                            #print(word_)
+                            #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                            all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                            #print(all_articles_relevancy['article_title'])
+
+        for key in all_articles_relevancy.keys():
+            if all_articles_relevancy[key] >= 0:
+                df_chunk.loc[df_chunk['article_title'] == key, ['relevant']] = 1
+
+            
+        # Concatenation
+        concatenation = [labelled_articles_df, df_chunk]
+        labelled_articles_df = pd.concat(concatenation,ignore_index=True)
+        
+        #print("----------------------------------------------------")
+        start_index = end_index
+        
+
+        #------------------------------------------------------------------------------------ RETRAINING ------------------------------------------------------------------------------------#
+        print("Retraining Model")
+        train_set=labelled_articles_df.copy(deep=True)
+
+        # Input parameters
+        num_classifiers = 1
+        classifier_ = 0
+
+        run_relevant = True 
+
+        num_words_relevant = 70
+        #num_words_relevant = 70 
+        num_words_irrelevant = 60 
+
+        num_similar_relevant = 4
+        similarity_threshold_relevant = 0.8
+
+        num_similar_irrelevant = 3
+        similarity_threshold_irrelevant = 0.8
+
+        num_runs = 0
+
+        # Get the frequency of each word in the article post-sanitization and store it in a dataframe
+        while(num_runs < 2):
+            
+            # Dictionary that stores the frequency of each word
+            count_dict = {}
+
+            # If we are getting the relevant words, take all the relevant articles 
+            if run_relevant == True:
+                articles = list(train_set[train_set['relevant'] == 1]['text'])
+
+            # Else take all the irrelevant articles
+            else:
+                articles = list(train_set[train_set['relevant'] == 0]['text'])      
+
+            # Sanitize each word in each article, and save it to the count dictionary with frequency updating
+            for article in articles:
+                #print("article")
+                sentences = sent_tokenize(article)
+                
+                for sentence in sentences:
+                    words_in_sentence = list(sentence.split(" "))
+                    for word_ in words_in_sentence:
+
+                        word_ = santize_word(word_)
+
+                        if (word_ not in stop_words) and (word_ not in string.punctuation):
+                            if word_ not in count_dict.keys():
+                                #embeddings_dict[word_] = model.encode(word_)
+                                #embeddings_dict[word_] = ""
+                                count_dict[word_] = 1
+
+                            else:
+                                count_dict[word_] += 1
+
+
+            # Save the words to a dataframe, and temporary file
+            if run_relevant == True:
+                relevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
+                relevant_df.reset_index(inplace=True)
+                relevant_df = relevant_df.rename(columns={'index': 'word'})
+                relevant_df = relevant_df.sort_values(by=['frequency'], ascending=False)
+                  
+                relevant_df.to_csv("relevant_words_count.csv")
+                
+            else:
+                irrelevant_df = pd.DataFrame(pd.Series(count_dict), columns = ['frequency'])
+                irrelevant_df.reset_index(inplace=True)
+                irrelevant_df = irrelevant_df.rename(columns={'index': 'word'})
+                irrelevant_df = irrelevant_df.sort_values(by=['frequency'], ascending=False)
+               
+                irrelevant_df.to_csv("irrelevant_words_count.csv")
+            
+            num_runs += 1
+            run_relevant = False
+
+        # Scaling of the frequencies
+        
+        # First calculate the max frequency
+        max_val = 0
+        if relevant_df['frequency'].max() > irrelevant_df['frequency'].max():
+            max_val = relevant_df['frequency'].max()
+        else:
+            max_val = irrelevant_df['frequency'].max()
+
+        # Scale frequencies for relevant df
+        normalized_freq = []
+        for freq_ in list(relevant_df['frequency']):
+
+            scaled_freq = freq_ / max_val
+            normalized_freq.append(scaled_freq)
+
+        relevant_df['frequency_scaled'] = normalized_freq
+
+        # Scale frequencies for irrelevant df
+        normalized_freq = []
+        for freq_ in list(irrelevant_df['frequency']):
+
+            scaled_freq = freq_ / max_val
+            normalized_freq.append(scaled_freq)
+
+        irrelevant_df['frequency_scaled'] = normalized_freq
+        
+        '''
+        # Get common words between both lists
+        relevant_words = list(relevant_df.word)
+        irrelevant_words = list(irrelevant_df.word)
+        common_words = intersection(relevant_words, irrelevant_words)
+        
+        # Modify frequency scaled value based on difference in scaled frequency
+        for common_word in common_words:
+            #print(common_word)
+            relevant_freq = float(relevant_df[relevant_df['word'] == common_word]['frequency_scaled'])
+            irrelevant_freq = float(irrelevant_df[irrelevant_df['word'] == common_word]['frequency_scaled'])
+
+            #print(f"Relevant freq = {relevant_freq}")
+            #print(f"Irrelevant freq = {irrelevant_freq}")
+
+            if relevant_freq > irrelevant_freq:
+                relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = relevant_freq - irrelevant_freq
+                irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = 0
+
+            else:
+                irrelevant_df.loc[irrelevant_df['word'] == common_word, ['frequency_scaled']] = irrelevant_freq - relevant_freq
+                relevant_df.loc[relevant_df['word'] == common_word, ['frequency_scaled']] = 0
+        '''
+
+
+        # Sort dataframes again by scaled frequencies 
+        relevant_df = relevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+        irrelevant_df = irrelevant_df.sort_values(by=['frequency_scaled'], ascending=False)
+
+
+        # Load the embedding model for generating similar words
+        print("---------------------------- LOADING MODEL---------------------------- ")
+        start = time()
+        global model
+        doc2vec_filename = 'doc2vec/doc2vec.bin'
+        model= Doc2Vec.load(doc2vec_filename)
+        print('MODEL LOADED in %.2f seconds' % (time() - start))
+        
+        # Trim down the relevant and irrelevant words
+        relevant_words = list(relevant_df.head(num_words_relevant).word)
+        irrelevant_words = list(irrelevant_df.head(num_words_irrelevant).word)
+
+        # Generate embeddings for relevant words
+        relevant_embeddings_dict = multiprocess_embeddings(6, relevant_words)
+        relevant_df['relevancy_score'] = np.zeros(len(relevant_df))
+        relevant_df['weighted_score'] = np.ones(len(relevant_df))
+
+        # Calculate weighted score based on relevancy and scaled frequency from embeddings
+        for word_comp in relevant_words:
+            for word_against in relevant_words:
+                relevant_df.loc[relevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(relevant_embeddings_dict[word_comp], relevant_embeddings_dict[word_against]).flatten())
+
+        relevant_df['weighted_score'] = relevant_df['relevancy_score'] * relevant_df['frequency_scaled']
+        relevant_df = relevant_df.head(num_words_relevant)
+
+        # Generate similar words
+        words_to_add = []
+
+        for index, row in relevant_df.head(num_words_relevant).iterrows():
+            #print(row['word'])
+            
+            try:
+                similar_words = model.most_similar(positive=[row['word']], topn = num_similar_relevant)
+            except:
+                similar_words = []
+            #print(similar_words)
+            
+            for similar_word in similar_words:
+                word_ = similar_word[0]
 
                 word_ = santize_word(word_)
 
                 if (word_ not in stop_words) and (word_ not in string.punctuation):
+                    if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_relevant):
+                        if (word_ not in words_to_add) and (word_ not in list(relevant_df['word'])):
+                            words_to_add.append(word_)
+                            temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
+                            relevant_df = relevant_df.append(temp_dict, ignore_index = True)
+            #print("----------------------------------------------------------------------")
+            
+        relevant_df = relevant_df.sort_values(by=['weighted_score'], ascending=False)
+        #relevant_df = relevant_df.head(num_words_relevant)
+        relevant_df.to_csv("relevant_words.csv")
+        
 
-                    if word_ in list(relevant_df['word']):
-                        #print("RELEVANT WORD")
-                        #print(word_)
-                        #print(relevant_df[relevant_df['word'] == word_]['weighted_score'])
-                        all_articles_relevancy[row['article_title']] += float(relevant_df[relevant_df['word'] == word_]['weighted_score'])
-                        #print(all_articles_relevancy['article_title'])
+        # Generate embeddings for irrelevant words
+        irrelevant_embeddings_dict = multiprocess_embeddings(6, irrelevant_words)
+        irrelevant_df['relevancy_score'] = np.zeros(len(irrelevant_df))
+        irrelevant_df['weighted_score'] = np.ones(len(irrelevant_df))
 
-                    if word_ in list(irrelevant_df['word']):
-                        #print("IRRELEVANT WORD")
-                        #print(word_)
-                        #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
-                        all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
-                        #print(all_articles_relevancy['article_title'])
+        # Calculate weighted score based on relevancy and scaled frequency from embeddings
+        for word_comp in irrelevant_words:
+            for word_against in irrelevant_words:
+                irrelevant_df.loc[irrelevant_df['word'] == word_comp, ['relevancy_score']] += (cosine_similarity(irrelevant_embeddings_dict[word_comp], irrelevant_embeddings_dict[word_against]).flatten())
 
-    for key in all_articles_relevancy.keys():
-        if all_articles_relevancy[key] >= 0:
-            test_set.loc[test_set['article_title'] == key, ['predicted' + str(classifier_)]] = 1
+        irrelevant_df['weighted_score'] = irrelevant_df['relevancy_score'] * irrelevant_df['frequency_scaled']
+        irrelevant_df = irrelevant_df.head(num_words_irrelevant)
+
+        # Generate similar words
+        words_to_add = []
+
+        for index, row in irrelevant_df.head(num_words_irrelevant).iterrows():
+            #print(row['word'])
+            
+            try:
+                similar_words = model.most_similar(positive=[row['word']], topn = num_similar_irrelevant)
+            except:
+                similar_words = []
+            #print(similar_words)
+            
+            for similar_word in similar_words:
+                word_ = similar_word[0]
+
+                word_ = santize_word(word_)
+
+                if (word_ not in stop_words) and (word_ not in string.punctuation):
+                    if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_irrelevant):
+                        if (word_ not in words_to_add) and (word_ not in list(irrelevant_df['word'])):
+                            words_to_add.append(word_)
+                            temp_dict = {"word": word_, "frequency": row['frequency'], "frequency_scaled": row['frequency_scaled'], "relevancy_score": row['relevancy_score'], "weighted_score": float(similar_word[1]) * float(row["weighted_score"])}
+                            irrelevant_df = irrelevant_df.append(temp_dict, ignore_index = True)
 
 
-    test_set.to_csv("results/"+filename+".csv")
+        irrelevant_df = irrelevant_df.sort_values(by=['weighted_score'], ascending=False)
+        #irrelevant_df = irrelevant_df.head(num_words_irrelevant) 
+        irrelevant_df.to_csv("irrelevant_words.csv")
+
+    labelled_articles_df.to_csv("results/"+filename+".csv")
+    print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
