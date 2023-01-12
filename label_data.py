@@ -412,11 +412,16 @@ if __name__ == "__main__":
     main_start = time()
 
     folder_name = "fwb_data/"
-    filename = "part-000000000000"
+    filename = "part-000000000059"
     filetype = ".json"
     articles_df = pd.read_json(folder_name+filename+filetype, lines=True)
     articles_df.fillna("", inplace=True)
-    articles_df = articles_df.reset_index().drop(columns=['subject_codes','copyright','index','region_of_origin','source_name','language_code', 'region_codes', 'byline', 'publisher_name','company_codes_association', 'art', 'modification_datetime', 'company_codes_occur_ticker_exchange', 'company_codes_occur', 'company_codes_about', 'company_codes_lineage','company_codes_ticker_exchange','company_codes_relevance_ticker_exchange','publication_date',    'market_index_codes','credit','section','company_codes_association_ticker_exchange','currency_codes','an','word_count','company_codes','industry_codes','action','document_type','dateline', 'publication_datetime','company_codes_relevance','source_code','person_codes','company_codes_lineage_ticker_exchange','ingestion_datetime','modification_date','company_codes_about_ticker_exchange'])
+    '''articles_df = articles_df.reset_index().drop(columns=['subject_codes','copyright','index','language_code', 'byline','company_codes_association', 
+    'art', 'modification_datetime', 'company_codes_occur_ticker_exchange', 'company_codes_occur', 'company_codes_about', 'company_codes_lineage',
+    'company_codes_ticker_exchange','company_codes_relevance_ticker_exchange','publication_date',    'market_index_codes','credit','section',
+    'company_codes_association_ticker_exchange','currency_codes','an','word_count','company_codes','industry_codes','action','document_type','dateline', 
+    'publication_datetime','company_codes_relevance','source_code','person_codes','company_codes_lineage_ticker_exchange','ingestion_datetime',
+    'modification_date','company_codes_about_ticker_exchange'])'''
     articles_df['text'] = articles_df['title'] + ' ' + articles_df['snippet'] + ' ' + articles_df['body']
     articles_df = articles_df.rename(columns={'title': 'article_title', 'relevance': 'relevant'})
     articles_df = articles_df.reset_index().drop(columns=['snippet', 'body', 'index'])
@@ -437,10 +442,10 @@ if __name__ == "__main__":
     classifier_ = 0
 
     start_index = 0
-    labelled_articles_df = pd.read_csv("all_articles.csv")
+    labelled_articles_df = pd.read_csv("all_articles_updated.csv")
     labelled_articles_df.fillna("", inplace=True)
     #chunk_percentages = [1,2,4,4,4,4,4,4,4,4,20,20,25]
-    chunk_percentages = [25,25,25,25]
+    chunk_percentages = [100]
 
     for chunk_percentage in chunk_percentages:
         
@@ -460,6 +465,8 @@ if __name__ == "__main__":
         all_articles_relevancy = multiprocess_classification(8, df_chunk, relevant_df, irrelevant_df)
 
         for key in all_articles_relevancy.keys():
+            df_chunk.loc[df_chunk['article_title'] == key, ['relevancy_score']] = all_articles_relevancy[key]
+
             if all_articles_relevancy[key] >= 0:
                 df_chunk.loc[df_chunk['article_title'] == key, ['relevant']] = 1
 

@@ -441,6 +441,8 @@ if __name__ == "__main__":
     #num_words_relevant_range = list(range(40, 120, 5))
     #num_words_irrelevant_range = list(range(40, 120, 5))
 
+    #relevant_df = pd.read_csv('relevant_words.csv')
+    #irrelevant_df = pd.read_csv('irrelevant_words.csv')
     
     if True:
 
