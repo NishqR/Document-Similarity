@@ -2,6 +2,7 @@ import os
 import string
 from time import time
 import random
+import copy
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -47,6 +48,8 @@ from nltk import sent_tokenize
 
 #stop_words = stopwords.words('english')
 stop_words = set(stopwords.words('english') + [word.strip("\n") for word in open("remove_words.txt", "r")])
+relevant_stop_words = set(stopwords.words('english') + [word.strip("\n") for word in open("remove_words_from_relevant.txt", "r")])
+irrelevant_stop_words = set(stopwords.words('english') + [word.strip("\n") for word in open("remove_words_from_irrelevant.txt", "r")])
 
 lemmatizer = WordNetLemmatizer()
 
@@ -290,6 +293,117 @@ def multiprocess_embeddings(num_cpus, words_list):
 
     return embeddings_dict
 
+def process_classification(articles_batch, all_articles_relevancy, count, relevant_df, irrelevant_df):
+
+    for index, row in articles_batch.iterrows():
+            
+        print(f"Classifying article {count[0]}")
+        start = time()
+
+        if len(list(row['text'].split(" "))) < 100:
+            all_articles_relevancy[row['article_title']] = -10
+            continue
+
+        relevant_words_list = list(relevant_df['word'])
+        irrelevant_words_list = list(irrelevant_df['word'])
+
+        all_articles_relevancy[row['article_title']] = 0
+        sentences = sent_tokenize(row['text'])
+
+        for sentence in sentences:
+            words_in_sentence = list(sentence.split(" "))
+            for word_ in words_in_sentence:
+
+                word_ = santize_word(word_)
+
+                if (word_ not in stop_words) and (word_ not in string.punctuation):
+
+
+                    if word_ in relevant_words_list:
+                        #print("RELEVANT WORD")
+                        #print(word_)
+                        #print(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                        all_articles_relevancy[row['article_title']] += float(relevant_df[relevant_df['word'] == word_]['weighted_score'])
+                        #print(all_articles_relevancy['article_title'])
+
+                    if word_ in irrelevant_words_list:
+                        #print("IRRELEVANT WORD")
+                        #print(word_)
+                        #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                        all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
+                        #print(all_articles_relevancy['article_title'])
+
+        count[0]+=1
+        print('Cell took %.2f seconds to run.' % (time() - start))
+
+
+def create_classification_threads(articles_batch, all_articles_relevancy, count, relevant_df, irrelevant_df):
+
+    num_threads = 1
+    threads_list = []
+
+    for r in range(num_threads + 1):
+
+        if len(threads_list) == num_threads:
+
+            # Start the processes       
+            for thread in threads_list:
+                
+                thread.start()
+
+            # Ensure all of the processes have finished
+            for thread in threads_list:
+                
+                thread.join()
+                
+            threads_list = []
+
+        else:
+            thread = threading.Thread(target = process_classification, 
+                                        args = (articles_batch, all_articles_relevancy, count, relevant_df, irrelevant_df))
+            threads_list.append(thread)
+
+def multiprocess_classification(num_cpus, articles_df, relevant_df, irrelevant_df):
+
+    print(f"Processor count = {num_cpus}")
+    
+    num_threads = len(articles_df) / num_cpus
+    print(f"Thread count = {num_threads}")
+
+    processes_list = []
+    
+    start_index = 0
+
+    articles_manager = multiprocessing.Manager()
+    
+    all_articles_relevancy = articles_manager.dict()
+
+    #count_dict = embeddings_manager.dict()
+
+    count = articles_manager.list()
+    count.append(0)
+    
+    for cpu_num in range(num_cpus):
+        end_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+        #print(end_index)
+        #print(num_list[start_index:end_index])
+
+        process = multiprocessing.Process(target = create_classification_threads, args=(articles_df[start_index:end_index], all_articles_relevancy, count, relevant_df, irrelevant_df))
+        processes_list.append(process)
+        start_index = int((cpu_num+1)*(len(articles_df)/num_cpus))
+
+    print(f"Processes list = {processes_list}")
+    
+    for process in processes_list:
+        print(f"Starting process")
+        process.start()
+
+    for process in processes_list:
+        print(f"Double checking process")
+        process.join()
+
+    return all_articles_relevancy
+
 
 if __name__ == "__main__":
 
@@ -310,9 +424,9 @@ if __name__ == "__main__":
     num_classifiers = 1
     classifier_ = 0
 
-    num_words_relevant = 120
+    num_words_relevant = 110
     #num_words_relevant = 70 
-    num_words_irrelevant = 120
+    num_words_irrelevant = 110
 
     num_similar_relevant = 4
     similarity_threshold_relevant = 0.8
@@ -339,11 +453,14 @@ if __name__ == "__main__":
             # If we are getting the relevant words, take all the relevant articles 
             if run_relevant == True:
                 articles = list(train_set[train_set['relevant'] == 1]['text'])
+                stop_words_specific = set(list(copy.deepcopy(stop_words)) + list(copy.deepcopy(relevant_stop_words)))
 
             # Else take all the irrelevant articles
             else:
-                articles = list(train_set[train_set['relevant'] == 0]['text'])      
+                articles = list(train_set[train_set['relevant'] == 0]['text'])
+                stop_words_specific = set(list(copy.deepcopy(stop_words)) + list(copy.deepcopy(irrelevant_stop_words)))      
 
+            print(stop_words_specific)
             # Sanitize each word in each article, and save it to the count dictionary with frequency updating
             for article in articles:
             
@@ -355,7 +472,7 @@ if __name__ == "__main__":
 
                         word_ = santize_word(word_)
 
-                        if (word_ not in stop_words) and (word_ not in string.punctuation):
+                        if (word_ not in stop_words_specific) and (word_ not in string.punctuation):
                             if word_ not in count_dict.keys():
                                 #embeddings_dict[word_] = model.encode(word_)
                                 #embeddings_dict[word_] = ""
@@ -474,9 +591,6 @@ if __name__ == "__main__":
         model= Doc2Vec.load(filename)
         print('MODEL LOADED in %.2f seconds' % (time() - start))
         
-#for num_words_relevant in num_words_relevant_range:
-
-#    for num_words_irrelevant in num_words_irrelevant_range:
 
         # Make a copy dataframe of the all the relevant and irrelevant words
         relevant_df = relevant_df_all.copy(deep=True)
@@ -516,7 +630,7 @@ if __name__ == "__main__":
 
                 word_ = santize_word(word_)
 
-                if (word_ not in stop_words) and (word_ not in string.punctuation):
+                if (word_ not in stop_words) and (word_ not in string.punctuation) and (word_ not in relevant_stop_words):
                     if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_relevant):
                         if (word_ not in words_to_add) and (word_ not in list(relevant_df['word'])):
                             words_to_add.append(word_)
@@ -559,7 +673,7 @@ if __name__ == "__main__":
 
                 word_ = santize_word(word_)
 
-                if (word_ not in stop_words) and (word_ not in string.punctuation):
+                if (word_ not in stop_words) and (word_ not in string.punctuation) and (word_ not in irrelevant_stop_words):
                     if (word_ != (row['word'] + 's')) and (similar_word[1] >= similarity_threshold_irrelevant):
                         if (word_ not in words_to_add) and (word_ not in list(irrelevant_df['word'])):
                             words_to_add.append(word_)
@@ -577,6 +691,8 @@ if __name__ == "__main__":
 
         # Do classification based on number of relevant and irrelevant words
         test_set['predicted' + str(classifier_)] = np.zeros(len(test_set))
+        all_articles_relevancy = multiprocess_classification(6, test_set, relevant_df, irrelevant_df)
+        '''
         all_articles_relevancy = {}
         for index, row in test_set.iterrows():
             
@@ -605,7 +721,7 @@ if __name__ == "__main__":
                             #print(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
                             all_articles_relevancy[row['article_title']] -= float(irrelevant_df[irrelevant_df['word'] == word_]['weighted_score'])
                             #print(all_articles_relevancy['article_title'])
-
+        '''
         for key in all_articles_relevancy.keys():
             if all_articles_relevancy[key] >= 0:
                 test_set.loc[test_set['article_title'] == key, ['predicted' + str(classifier_)]] = 1

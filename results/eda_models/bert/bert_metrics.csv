@@ -1,0 +1,2 @@
+,true_positive,true_negative,false_positive,false_negative,accuracy,precision,recall,f1_score
+0,4582.0,408.0,10960.0,179.0,0.3093806187612375,0.29481405224552826,0.9624028565427432,0.45136186770428016

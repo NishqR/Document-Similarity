@@ -69,3 +69,17 @@ results/part-000000000000.csv
 results/part-000000000000.csv
 results/part-000000000000.csv
 results/part-000000000000.csv
+results/v1/irrelevant_words.csv
+results/v1/part-000000000000.csv
+results/v1/relevant_words.csv
+results/v2_no_retrain/irrelevant_words.csv
+results/v2_no_retrain/part-000000000000.csv
+results/v2_no_retrain/relevant_words.csv
+results/v3_no_retrain/irrelevant_words.csv
+results/v3_no_retrain/part-000000000000.csv
+results/v3_no_retrain/relevant_words.csv
+results/v4_no_retrain/irrelevant_words.csv
+results/v4_no_retrain/irrelevant_words_count.csv
+results/v4_no_retrain/part-000000000000.csv
+results/v4_no_retrain/relevant_words.csv
+results/v4_no_retrain/relevant_words_count.csv
