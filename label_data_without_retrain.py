@@ -412,74 +412,80 @@ if __name__ == "__main__":
     main_start = time()
 
     folder_name = "fwb_data/"
-    filename = "part-000000000058"
-    filetype = ".json"
-    articles_df = pd.read_json(folder_name+filename+filetype, lines=True)
-    articles_df.fillna("", inplace=True)
-    '''articles_df = articles_df.reset_index().drop(columns=['subject_codes','copyright','index','language_code', 'byline','company_codes_association', 
-    'art', 'modification_datetime', 'company_codes_occur_ticker_exchange', 'company_codes_occur', 'company_codes_about', 'company_codes_lineage',
-    'company_codes_ticker_exchange','company_codes_relevance_ticker_exchange','publication_date',    'market_index_codes','credit','section',
-    'company_codes_association_ticker_exchange','currency_codes','an','word_count','company_codes','industry_codes','action','document_type','dateline', 
-    'publication_datetime','company_codes_relevance','source_code','person_codes','company_codes_lineage_ticker_exchange','ingestion_datetime',
-    'modification_date','company_codes_about_ticker_exchange'])'''
-    articles_df['text'] = articles_df['title'] + ' ' + articles_df['snippet'] + ' ' + articles_df['body']
-    articles_df = articles_df.rename(columns={'title': 'article_title', 'relevance': 'relevant'})
-    articles_df = articles_df.reset_index().drop(columns=['snippet', 'body', 'index'])
-    
-    articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\n", " ", str(x)))
-    articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\t", " ", str(x)))
-    articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\n", " ", str(x)))
-    articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\t", " ", str(x)))
-    
-    #articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r",", " ", str(x)))
 
-    #test_set=articles_df.sample(frac=0.1,random_state=195)
-    relevant_df = pd.read_csv('relevant_words.csv')
-    irrelevant_df = pd.read_csv('irrelevant_words.csv')
+    for filename in os.listdir('fwb_data/'):
 
-    # Input parameters
-    num_classifiers = 1
-    classifier_ = 0
-
-    start_index = 0
-    labelled_articles_df = pd.read_csv("all_articles_updated.csv")
-    labelled_articles_df.fillna("", inplace=True)
-    #chunk_percentages = [1,2,4,4,4,4,4,4,4,4,20,20,25]
-    chunk_percentages = [100]
-
-    for chunk_percentage in chunk_percentages:
+        batch_start = time()
+        #filename = "part-000000000058"
+        #filetype = ".json"
+        articles_df = pd.read_json(folder_name+filename, lines=True)
+        articles_df.fillna("", inplace=True)
+        '''articles_df = articles_df.reset_index().drop(columns=['subject_codes','copyright','index','language_code', 'byline','company_codes_association', 
+        'art', 'modification_datetime', 'company_codes_occur_ticker_exchange', 'company_codes_occur', 'company_codes_about', 'company_codes_lineage',
+        'company_codes_ticker_exchange','company_codes_relevance_ticker_exchange','publication_date',    'market_index_codes','credit','section',
+        'company_codes_association_ticker_exchange','currency_codes','an','word_count','company_codes','industry_codes','action','document_type','dateline', 
+        'publication_datetime','company_codes_relevance','source_code','person_codes','company_codes_lineage_ticker_exchange','ingestion_datetime',
+        'modification_date','company_codes_about_ticker_exchange'])'''
+        articles_df['text'] = articles_df['title'] + ' ' + articles_df['snippet'] + ' ' + articles_df['body']
+        articles_df = articles_df.rename(columns={'title': 'article_title', 'relevance': 'relevant'})
+        articles_df = articles_df.reset_index().drop(columns=['snippet', 'body', 'index'])
         
-
-        #------------------------------------------------------------------------------------ CLASSIFICATION ------------------------------------------------------------------------------------#
-        print(f"Classifying batch {chunk_percentage}")
-        end_index = start_index + int((chunk_percentage/100) * len(articles_df))
+        articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\n", " ", str(x)))
+        articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r"\t", " ", str(x)))
+        articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\n", " ", str(x)))
+        articles_df['article_title'] = articles_df.article_title.apply(lambda x: re.sub(r"\t", " ", str(x)))
         
-        df_chunk = articles_df[start_index:end_index].copy(deep=True)
-        
-        df_chunk['relevant'] = np.zeros(len(df_chunk))
-        df_chunk['relevancy_score'] = np.zeros(len(df_chunk))
-        
-        #for index, row in df[start_index:end_index].iterrows():
-            #print(index)
+        #articles_df['text'] = articles_df.text.apply(lambda x: re.sub(r",", " ", str(x)))
 
-        # Do classification based on number of relevant and irrelevant words
-        all_articles_relevancy = multiprocess_classification(8, df_chunk, relevant_df, irrelevant_df)
+        #test_set=articles_df.sample(frac=0.1,random_state=195)
+        relevant_df = pd.read_csv('relevant_words.csv')
+        irrelevant_df = pd.read_csv('irrelevant_words.csv')
 
-        for key in all_articles_relevancy.keys():
-            df_chunk.loc[df_chunk['article_title'] == key, ['relevancy_score']] = all_articles_relevancy[key]
+        # Input parameters
+        num_classifiers = 1
+        classifier_ = 0
 
-            if all_articles_relevancy[key] >= 0:
-                df_chunk.loc[df_chunk['article_title'] == key, ['relevant']] = 1
+        start_index = 0
+        labelled_articles_df = pd.read_csv("update_df.csv")
+        labelled_articles_df.fillna("", inplace=True)
+        #chunk_percentages = [1,2,4,4,4,4,4,4,4,4,20,20,25]
+        chunk_percentages = [100]
 
+        for chunk_percentage in chunk_percentages:
             
-        # Concatenation
-        concatenation = [labelled_articles_df, df_chunk]
-        labelled_articles_df = pd.concat(concatenation,ignore_index=True)
-        
-        #print("----------------------------------------------------")
-        start_index = end_index
-        
 
-    labelled_articles_df.to_csv("results/"+filename+".csv")
-    labelled_articles_df.to_json("results/"+filename+".json")
+            #------------------------------------------------------------------------------------ CLASSIFICATION ------------------------------------------------------------------------------------#
+            print(f"Classifying batch {filename}")
+            end_index = start_index + int((chunk_percentage/100) * len(articles_df))
+            
+            df_chunk = articles_df[start_index:end_index].copy(deep=True)
+            
+            df_chunk['relevant'] = np.zeros(len(df_chunk))
+            df_chunk['relevancy_score'] = np.zeros(len(df_chunk))
+            
+            #for index, row in df[start_index:end_index].iterrows():
+                #print(index)
+
+            # Do classification based on number of relevant and irrelevant words
+            all_articles_relevancy = multiprocess_classification(8, df_chunk, relevant_df, irrelevant_df)
+
+            for key in all_articles_relevancy.keys():
+                df_chunk.loc[df_chunk['article_title'] == key, ['relevancy_score']] = all_articles_relevancy[key]
+
+                if all_articles_relevancy[key] >= 0:
+                    df_chunk.loc[df_chunk['article_title'] == key, ['relevant']] = 1
+
+                
+            # Concatenation
+            concatenation = [labelled_articles_df, df_chunk]
+            labelled_articles_df = pd.concat(concatenation,ignore_index=True)
+            
+            #print("----------------------------------------------------")
+            start_index = end_index
+            
+
+        labelled_articles_df.to_csv("results/"+filename[:-5]+".csv")
+        labelled_articles_df.to_json("results/"+filename[:-5]+".json")
+
+        print('Batch took %.2f minutes to run.' % ((time() - batch_start)/60))
     print('Script took %.2f minutes to run.' % ((time() - main_start)/60))
