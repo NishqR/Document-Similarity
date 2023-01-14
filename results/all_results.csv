@@ -1,7 +1,0 @@
-﻿model,true_positive,true_negative,false_positive,false_negative,accuracy,precision,recall,f1_score,time_taken
-bert,4582,408,10960,179,0.31,0.29,0.96,0.45,4.5 minutes
-doc2vec,1082,9756,1612,3679,0.67,0.4,0.23,0.29,35 minutes
-jaccard,276,11154,214,4485,0.71,0.56,0.06,0.11,2 minutes
-tf_idf,2394,6136,5232,2367,0.53,0.31,0.5,0.39,2 minutes
-use,656,10510,858,4105,0.69,0.43,0.14,0.21,3 minutes
-wmd,4690,202,11166,71,0.3,0.3,0.99,0.45,75 minutes
